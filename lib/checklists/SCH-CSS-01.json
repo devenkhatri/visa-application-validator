@@ -1,0 +1,52 @@
+{
+  "checklist_id": "SCH-CSS-01",
+  "country": "Schengen Zone",
+  "visa_type": "Short Stay (Type C)",
+  "flag": "🇪🇺",
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "category": "Identity",
+      "document": "Valid Passport",
+      "mandatory": true,
+      "validity_months": 3
+    },
+    {
+      "id": "REQ-002",
+      "category": "Financial",
+      "document": "Bank Statements (3 months)",
+      "mandatory": true,
+      "months_required": 3
+    },
+    {
+      "id": "REQ-003",
+      "category": "Insurance",
+      "document": "Travel Insurance (min €30k)",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-004",
+      "category": "Identity",
+      "document": "Passport Photo",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-005",
+      "category": "Travel",
+      "document": "Return Flight Booking",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-006",
+      "category": "Accommodation",
+      "document": "Hotel Booking",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-007",
+      "category": "Employment",
+      "document": "Employment Letter or NOC",
+      "mandatory": false
+    }
+  ]
+}

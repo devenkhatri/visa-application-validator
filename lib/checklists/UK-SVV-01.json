@@ -1,0 +1,53 @@
+{
+  "checklist_id": "UK-SVV-01",
+  "country": "United Kingdom",
+  "visa_type": "Standard Visitor",
+  "flag": "🇬🇧",
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "category": "Identity",
+      "document": "Valid Passport",
+      "mandatory": true,
+      "validity_months": 6
+    },
+    {
+      "id": "REQ-002",
+      "category": "Financial",
+      "document": "Bank Statements (6 months)",
+      "mandatory": true,
+      "months_required": 6,
+      "min_balance_gbp": 2000
+    },
+    {
+      "id": "REQ-003",
+      "category": "Employment",
+      "document": "Employment Letter",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-004",
+      "category": "Identity",
+      "document": "Passport Photo",
+      "mandatory": true
+    },
+    {
+      "id": "REQ-005",
+      "category": "Travel",
+      "document": "Travel Itinerary",
+      "mandatory": false
+    },
+    {
+      "id": "REQ-006",
+      "category": "Accommodation",
+      "document": "Hotel / Accommodation Proof",
+      "mandatory": false
+    },
+    {
+      "id": "REQ-007",
+      "category": "Financial",
+      "document": "Payslips (3 months)",
+      "mandatory": false
+    }
+  ]
+}
