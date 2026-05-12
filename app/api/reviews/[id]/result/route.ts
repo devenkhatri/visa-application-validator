@@ -1,4 +1,5 @@
 // app/api/reviews/[id]/result/route.ts — GET: full analysis result
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { reviews, reviewResults } from '@/lib/db/schema';

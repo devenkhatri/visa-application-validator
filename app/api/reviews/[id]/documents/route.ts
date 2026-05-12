@@ -6,9 +6,7 @@ import { eq } from 'drizzle-orm';
 import { hashFile } from '@/lib/ai/ocrCache';
 import crypto from 'crypto';
 
-export const config = {
-  api: { bodyParser: false },
-};
+// App Router route handlers use the Web Request API natively — no bodyParser config needed
 
 // Allowed MIME types
 const ALLOWED_TYPES = new Set([

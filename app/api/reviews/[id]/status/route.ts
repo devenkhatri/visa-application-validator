@@ -1,4 +1,5 @@
 // app/api/reviews/[id]/status/route.ts — GET: poll review status
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { reviews } from '@/lib/db/schema';

@@ -27,7 +27,7 @@ export async function POST(
     return NextResponse.json({ error: 'Review not found' }, { status: 404 });
   }
 
-  if (review[0].status === 'processing' || review[0].status === 'completed') {
+  if (review[0].status === 'completed') {
     return NextResponse.json({ status: review[0].status });
   }
 

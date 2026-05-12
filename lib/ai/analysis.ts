@@ -14,7 +14,6 @@ export async function analyseApplication(
 
   const response = await openrouter.chat.completions.create({
     model:           ANALYSIS_MODEL,
-    response_format: { type: 'json_object' },
     messages: [
       {
         role:    'system',

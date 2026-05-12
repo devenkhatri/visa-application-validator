@@ -48,7 +48,7 @@ export default function ProcessingSteps({ reviewId, onComplete, onFailed }: Proc
     async function poll() {
       if (cancelled) return;
       try {
-        const res  = await fetch(`/api/reviews/${reviewId}/status`);
+        const res  = await fetch(`/api/reviews/${reviewId}/status`, { cache: 'no-store' });
         const data = await res.json() as { status: string };
 
         if (data.status === 'completed') {

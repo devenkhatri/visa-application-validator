@@ -2,14 +2,18 @@
 import type { RawExtraction, ScrubbedExtraction, DocumentValidity } from './types';
 
 export function scrubPII(extractions: RawExtraction[]): ScrubbedExtraction[] {
-  return extractions.map(doc => ({
-    document_type:     doc.document_type,
-    document_validity: enrichValidity(doc.document_validity),
-    confidence_score:  doc.confidence_score,
-    language:          doc.language,
-    warnings:          doc.warnings,
-    field_summary:     scrubFields(doc.document_type, doc.extracted_fields),
-  }));
+  if (!Array.isArray(extractions)) return [];
+  return extractions.map(doc => {
+    const safeDoc = doc || {} as Partial<RawExtraction>;
+    return {
+      document_type:     safeDoc.document_type ?? 'unknown',
+      document_validity: enrichValidity(safeDoc.document_validity),
+      confidence_score:  safeDoc.confidence_score ?? 0,
+      language:          safeDoc.language ?? 'unknown',
+      warnings:          Array.isArray(safeDoc.warnings) ? safeDoc.warnings : [],
+      field_summary:     scrubFields(safeDoc.document_type ?? 'unknown', safeDoc.extracted_fields || {}),
+    };
+  });
 }
 
 function scrubFields(type: string, fields: Record<string, unknown>): Record<string, unknown> {
@@ -100,9 +104,17 @@ function detectAnomalies(transactions: Transaction[]): boolean {
   return transactions.some(t => t.amount > avg * 5);
 }
 
-function enrichValidity(v: { expiry_date: string | null; is_expired: boolean }): DocumentValidity {
-  const days = v.expiry_date
-    ? Math.floor((new Date(v.expiry_date).getTime() - Date.now()) / 86_400_000)
+function enrichValidity(v?: { expiry_date?: string | null; is_expired?: boolean }): DocumentValidity {
+  if (!v) {
+    return { expiry_date: null, is_expired: false, days_until_expiry: null };
+  }
+  const expiryDate = v.expiry_date ?? null;
+  const days = expiryDate
+    ? Math.floor((new Date(expiryDate).getTime() - Date.now()) / 86_400_000)
     : null;
-  return { ...v, days_until_expiry: days };
+  return {
+    expiry_date:       expiryDate,
+    is_expired:        v.is_expired ?? false,
+    days_until_expiry: days,
+  };
 }
