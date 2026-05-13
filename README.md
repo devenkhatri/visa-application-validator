@@ -59,7 +59,7 @@ Initialize the Python virtual environment and install dedicated computer vision 
 
 ```bash
 # Create and activate virtual environment
-python3 -m venv ocr-service/venv
+python3.10 -m venv ocr-service/venv
 source ocr-service/venv/bin/activate  # Windows: ocr-service\venv\Scripts\activate
 
 # Install dependencies (FastAPI, Uvicorn, PaddleOCR, pdf2image, etc.)

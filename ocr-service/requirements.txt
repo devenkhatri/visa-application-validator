@@ -1,11 +1,14 @@
 fastapi>=0.111
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
-paddlepaddle>=2.6
-paddleocr>=2.7
 pdf2image>=1.17
 Pillow>=10
 numpy>=1.26
-# Optional engines (uncomment what you need):
-# pytesseract>=0.3        # Tesseract engine
-# ollama>=0.2             # Ollama engine (requires Ollama desktop app)
+pytesseract>=0.3
+ollama>=0.2
+
+# Note: PaddlePaddle binary wheels are currently only available for Python <= 3.13.
+# If you are running Python 3.14+, leave these commented out — the service will
+# automatically and gracefully fall back to Tesseract or Ollama offline engines.
+paddlepaddle
+paddleocr

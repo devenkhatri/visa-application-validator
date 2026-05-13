@@ -140,34 +140,38 @@ def run_paddle(file_bytes: bytes, mime_type: str, doc_type: str) -> dict:
     else:
         pages = [Image.open(BytesIO(file_bytes))]
 
-    ocr = get_paddle()
-    full_text       = ""
-    total_confidence = 0.0
-    count            = 0
+    try:
+        ocr = get_paddle()
+        full_text       = ""
+        total_confidence = 0.0
+        count            = 0
 
-    for page in pages:
-        img_array = np.array(page)
-        result    = ocr.ocr(img_array, cls=True)
-        if result and result[0]:
-            for line in result[0]:
-                text, confidence = line[1]
-                full_text       += text + "\n"
-                total_confidence += float(confidence)
-                count            += 1
+        for page in pages:
+            img_array = np.array(page)
+            result    = ocr.ocr(img_array, cls=True)
+            if result and result[0]:
+                for line in result[0]:
+                    text, confidence = line[1]
+                    full_text       += text + "\n"
+                    total_confidence += float(confidence)
+                    count            += 1
 
-    avg_confidence   = total_confidence / count if count > 0 else 0.0
-    extracted_fields = parse_fields_from_text(full_text, doc_type)
+        avg_confidence   = total_confidence / count if count > 0 else 0.0
+        extracted_fields = parse_fields_from_text(full_text, doc_type)
 
-    return {
-        "document_type":     doc_type,
-        "extracted_fields":  extracted_fields,
-        "raw_text":          full_text,
-        "document_validity": extract_validity(extracted_fields),
-        "confidence_score":  round(avg_confidence, 3),
-        "language":          "en",
-        "warnings":          [],
-        "ocr_engine":        "paddleocr",
-    }
+        return {
+            "document_type":     doc_type,
+            "extracted_fields":  extracted_fields,
+            "raw_text":          full_text,
+            "document_validity": extract_validity(extracted_fields),
+            "confidence_score":  round(avg_confidence, 3),
+            "language":          "en",
+            "warnings":          [],
+            "ocr_engine":        "paddleocr",
+        }
+    except ImportError:
+        print("[OCR Fallback] paddleocr module not found. Automatically falling back to Tesseract offline engine.")
+        return run_tesseract(file_bytes, mime_type, doc_type)
 
 
 # ── Ollama (LLaVA / minicpm-v) engine ─────────────────────────────────────────
