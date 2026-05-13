@@ -88,8 +88,7 @@ export default function UploadPage() {
 
     setRunning(true);
     try {
-      await fetch(`/api/reviews/${reviewId}/start`, { method: 'POST' });
-      router.push(`/processing/${reviewId}`);
+      router.push(`/review-ocr/${reviewId}`);
     } catch {
       setRunning(false);
     }
@@ -101,18 +100,21 @@ export default function UploadPage() {
     <main className="min-h-screen bg-[#080c1a] text-white px-6 py-12">
       <div className="max-w-2xl mx-auto space-y-8">
         {/* Step indicator */}
-        <div className="flex items-center gap-2 text-sm text-white/40">
-          <span className="w-7 h-7 rounded-full bg-green-600/80 text-white flex items-center justify-center font-bold text-xs">✓</span>
-          <span className="text-white/30">Visa Type</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">2</span>
-          <span className="text-white/70 font-medium">Upload Docs</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">3</span>
-          <span>Processing</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">4</span>
-          <span>Results</span>
+        <div className="flex items-center gap-1.5 text-xs text-white/40 overflow-x-auto pb-2">
+          <span className="w-5 h-5 shrink-0 rounded-full bg-green-600/80 text-white flex items-center justify-center font-bold text-[10px]">✓</span>
+          <span className="text-white/30 shrink-0">Visa Type</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-5 h-5 shrink-0 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px]">2</span>
+          <span className="text-white/70 font-medium shrink-0">Upload Docs</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-5 h-5 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-[10px]">3</span>
+          <span className="shrink-0">Review OCR</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-5 h-5 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-[10px]">4</span>
+          <span className="shrink-0">Processing</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-5 h-5 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-[10px]">5</span>
+          <span className="shrink-0">Results</span>
         </div>
 
         <div>
@@ -209,10 +211,10 @@ export default function UploadPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
               </svg>
-              Starting AI Review…
+              Extracting OCR Content…
             </>
           ) : (
-            `Run AI Review${doneCount > 0 ? ` (${doneCount} file${doneCount !== 1 ? 's' : ''})` : ''} →`
+            `Review OCR Content${doneCount > 0 ? ` (${doneCount} file${doneCount !== 1 ? 's' : ''})` : ''} →`
           )}
         </button>
       </div>

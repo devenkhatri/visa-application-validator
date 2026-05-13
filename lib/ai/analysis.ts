@@ -26,6 +26,7 @@ Return ONLY valid JSON with exactly this structure, no extra text or markdown:
       "item": "document name from checklist",
       "status": "present | missing | weak | expired",
       "severity": "critical | major | minor",
+      "current_gap": "clear description of the specific gap observed before recommendation",
       "recommendation": "specific action for the applicant"
     }
   ],
@@ -42,6 +43,9 @@ Return ONLY valid JSON with exactly this structure, no extra text or markdown:
   "critical_gaps": ["list of critical issues"],
   "recommended_actions": ["numbered list of specific actions"]
 }
+
+CRITICAL RULES ON EXPIRATION:
+Examine the 'document_validity' object closely. If 'is_expired' is false or if 'days_until_expiry' is a positive number (meaning the date is in the future), the document is completely VALID and ACTIVE. Do NOT mark the status as "expired" under any circumstances if the expiration date is in the future.
 
 COUNTRY CHECKLIST:
 ${JSON.stringify(checklist, null, 2)}`,

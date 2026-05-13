@@ -24,10 +24,11 @@ export default function GapAnalysisTable({ items }: GapAnalysisTableProps) {
   return (
     <div className="rounded-2xl overflow-hidden border border-white/10">
       {/* Header */}
-      <div className="grid grid-cols-[2fr_1fr_1fr_3fr] gap-0 bg-white/5 px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-widest">
+      <div className="grid grid-cols-[1.5fr_0.8fr_0.8fr_2fr_2.5fr] gap-2 bg-white/5 px-4 py-3 text-xs font-semibold text-white/50 uppercase tracking-widest">
         <span>Document</span>
         <span>Status</span>
         <span>Severity</span>
+        <span>Observed Gap</span>
         <span>Recommendation</span>
       </div>
 
@@ -39,23 +40,23 @@ export default function GapAnalysisTable({ items }: GapAnalysisTableProps) {
         return (
           <div
             key={i}
-            className="grid grid-cols-[2fr_1fr_1fr_3fr] gap-0 px-4 py-4 border-t border-white/5 transition-colors duration-150 hover:bg-white/5"
+            className="grid grid-cols-[1.5fr_0.8fr_0.8fr_2fr_2.5fr] gap-2 px-4 py-4 border-t border-white/5 transition-colors duration-150 hover:bg-white/5 items-center"
             style={{ backgroundColor: sc.rowBg }}
           >
             {/* Document name */}
-            <span className="text-sm font-medium text-white/90 self-center">
+            <span className="text-sm font-medium text-white/90">
               {item.item}
             </span>
 
             {/* Status badge */}
-            <span className="self-center">
+            <span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${sc.badge}`}>
                 {sc.icon} {sc.label}
               </span>
             </span>
 
             {/* Severity badge */}
-            <span className="self-center">
+            <span>
               {item.severity !== undefined && (
                 <span className={`inline-flex text-xs font-semibold px-2.5 py-1 rounded-full border ${sv}`}>
                   {item.severity.charAt(0).toUpperCase() + item.severity.slice(1)}
@@ -63,8 +64,13 @@ export default function GapAnalysisTable({ items }: GapAnalysisTableProps) {
               )}
             </span>
 
+            {/* Observed Gap */}
+            <span className="text-xs text-red-300/90 leading-relaxed font-medium">
+              {item.current_gap ? item.current_gap : <span className="italic text-white/30">None observed</span>}
+            </span>
+
             {/* Recommendation */}
-            <span className="text-sm text-white/60 self-center leading-snug">
+            <span className="text-sm text-white/60 leading-snug">
               {item.recommendation}
             </span>
           </div>

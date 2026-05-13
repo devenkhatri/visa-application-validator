@@ -10,6 +10,8 @@ export interface RawExtraction {
   confidence_score: number;
   language: string;
   warnings: string[];
+  ocr_engine?: string;
+  raw_text?: string;
 }
 
 export interface DocumentValidity {
@@ -31,6 +33,7 @@ export interface GapItem {
   item: string;
   status: 'present' | 'missing' | 'weak' | 'expired';
   severity: 'critical' | 'major' | 'minor';
+  current_gap?: string;
   recommendation: string;
 }
 

@@ -112,9 +112,10 @@ function enrichValidity(v?: { expiry_date?: string | null; is_expired?: boolean 
   const days = expiryDate
     ? Math.floor((new Date(expiryDate).getTime() - Date.now()) / 86_400_000)
     : null;
+  const isExpired = days !== null ? days < 0 : (v.is_expired ?? false);
   return {
     expiry_date:       expiryDate,
-    is_expired:        v.is_expired ?? false,
+    is_expired:        isExpired,
     days_until_expiry: days,
   };
 }

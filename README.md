@@ -10,9 +10,10 @@ An AI-powered visa document review platform that reads applicant documents, vali
 
 1. **Document Upload** — Accepts passport scans, bank statements, employment letters, and supporting documents (PDF, JPG, PNG, up to 10 MB each).
 2. **Local / Vision OCR** — Extracts text using local Python engines (PaddleOCR, Ollama, Tesseract) or cloud-hosted multimodal models (Gemini 2.0 Flash via OpenRouter / Mistral API). Results are MD5-cached in SQLite for 90 days — re-uploads of the same file are instant and completely local.
-3. **PII Scrubbing** — Before any external gap analysis, a strict `scrubPII()` function strips all personal identifiers (passport numbers, exact balances, full names, account numbers) and replaces them with anonymised summary logic.
-4. **Gap Analysis** — A reasoning LLM compares the scrubbed, anonymised summaries against the country-specific visa checklist and returns a structured JSON evaluation report.
-5. **Scored Report** — Displays an overall probability score (0–100), a 5-category component breakdown, gap analysis table, key strengths, critical gaps, and numbered recommendations on an interactive dashboard downloadable as a formatted PDF.
+3. **Editable OCR Review Screen** — Presents an intermediate validation dashboard mapping structured fields and unedited layout text. Users can manually amend extracted parameters or spelling discrepancies live before analysis.
+4. **PII Scrubbing** — Before any external gap analysis, a strict `scrubPII()` function strips all personal identifiers (passport numbers, exact balances, full names, account numbers) and replaces them with anonymised summary logic.
+5. **Gap Analysis** — A reasoning LLM compares the scrubbed, anonymised summaries against the country-specific visa checklist and returns a structured JSON evaluation report including clear descriptions of observed shortfalls.
+6. **Scored Report** — Displays an overall probability score (0–100), a 5-category component breakdown, a detailed gap analysis table (incorporating an **Observed Gap** column before recommendations), key strengths, critical gaps, and numbered recommendations on an interactive dashboard downloadable as a formatted PDF.
 
 ### Supported Visa Types (MVP)
 | ID | Country | Visa Type |
@@ -133,10 +134,11 @@ The review interface is now fully accessible at **[http://localhost:3000](http:/
 
 1. **Launch** [http://localhost:3000](http://localhost:3000) and click **"Try Demo"**.
 2. **Step 1 — Select visa type:** Choose UK or Schengen, input a test nationality.
-3. **Step 2 — Upload documents:** Drag and drop sample document files. Assign specific type labels (e.g., Passport, Bank Statement).
-4. **Step 3 — Live Processing:** Watch real-time visual progress ticks. Notice the dedicated local-privacy messaging badge confirming **"OCR running locally — document stays on this machine"**.
-5. **Step 4 — Review Results:** Assess the visual probability score gauge, sub-component breakdowns, and critical gap recommendations. Click **"How is your data protected?"** to visually inspect exact local extractions versus scrubbed cloud payloads.
-6. **Re-upload Verification:** Re-submit identical files to instantly observe perfect zero-latency SQLite MD5 cache hits.
+3. **Step 2 — Upload documents:** Drag and drop sample document files. Assign specific type labels (e.g., Passport, Bank Statement). Click **"Review OCR Content →"**.
+4. **Step 3 — Review & Correct OCR:** Interactively tab through parsed files, inspect extracted JSON variables, correct spelling/numerical anomalies live, and verify dates against layout streams. Click **"Confirm Corrections & Run Gap Analysis →"**.
+5. **Step 4 — Live Processing:** Watch real-time visual progress ticks. Notice the dedicated local-privacy messaging badge confirming **"OCR running locally — document stays on this machine"**.
+6. **Step 5 — Review Results:** Assess the visual probability score gauge, sub-component breakdowns, and critical gap recommendations accompanied by precise **Observed Gap** summaries. Click **"How is your data protected?"** to visually inspect exact local extractions versus scrubbed cloud payloads.
+7. **Re-upload Verification:** Re-submit identical files to instantly observe perfect zero-latency SQLite MD5 cache hits.
 
 ---
 

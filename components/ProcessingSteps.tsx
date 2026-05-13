@@ -37,40 +37,30 @@ interface Step {
 const STEPS: Step[] = [
   {
     id:    'received',
-    label: 'Documents received and fingerprinted',
-    done:  'Documents received and fingerprinted',
-  },
-  {
-    id:    'cache-check',
-    label: cacheCheckLabel(),
-    done:  'OCR cache checked',
-  },
-  {
-    id:    'ocr',
-    label: ocrLabel(),
-    done:  ocrDoneLabel(),
+    label: 'Verified OCR properties mapped successfully',
+    done:  'Verified OCR properties mapped',
   },
   {
     id:    'scrub',
-    label: 'Scrubbing personal data before AI analysis...',
-    done:  'PII scrubbed — passport numbers & balances removed',
+    label: 'Scrubbing personal data before AI gap analysis...',
+    done:  'PII scrubbed — sensitive IDs & balances anonymised',
   },
   {
     id:    'analyse',
     label: isLocal
-      ? 'Sending anonymised summary to AI for gap analysis...'
-      : 'Analysing against visa checklist...',
-    done:  'Analysis complete',
+      ? 'Sending anonymised summary payload to AI for gap analysis...'
+      : 'Analysing application against country visa checklist...',
+    done:  'Checklist gap analysis complete',
   },
   {
     id:    'report',
-    label: 'Generating report...',
-    done:  'Report generated',
+    label: 'Generating formatted dashboard report...',
+    done:  'Report structure finalized',
   },
   {
     id:    'done',
-    label: 'Finalising...',
-    done:  '✨ Review complete',
+    label: 'Finalising review session...',
+    done:  '✨ Review session complete',
   },
 ];
 
