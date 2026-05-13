@@ -1,18 +1,18 @@
-# Visa AI Review System — MVP
+# Visa AI Review System — MVP (v1.1)
 
 An AI-powered visa document review platform that reads applicant documents, validates them against country-specific checklists, and delivers a probability score and gap analysis — in under 3 minutes, with full data privacy.
 
-> **This is a local-first MVP / proof-of-concept.** All data is stored in a local SQLite database. No cloud infrastructure or authentication is required to run the demo.
+> **v1.1 Update (Local-First Architecture):** OCR text extraction is now **local-first by default** using a dedicated Python FastAPI sidecar service (`ocr-service`). Documents **never leave the local machine** during text parsing and extraction. Cloud-based multimodal OCR via OpenRouter or Mistral is preserved as a seamless drop-in alternative.
 
 ---
 
 ## What It Does
 
 1. **Document Upload** — Accepts passport scans, bank statements, employment letters, and supporting documents (PDF, JPG, PNG, up to 10 MB each).
-2. **Vision OCR** — Uses a free vision LLM (via OpenRouter) to extract structured data from every document. Results are MD5-cached for 90 days — re-uploads of the same file are instant and free.
-3. **PII Scrubbing** — Before any analysis, a `scrubPII()` function strips all personal identifiers (passport numbers, exact balances, full names, account numbers) and replaces them with anonymised summaries.
-4. **Gap Analysis** — A reasoning LLM (via OpenRouter) compares the scrubbed summaries against the country-specific visa checklist and returns a structured JSON report.
-5. **Scored Report** — An overall probability score (0–100), a 5-category breakdown, gap analysis table, key strengths, critical gaps, and recommended actions — displayed on an interactive dashboard and downloadable as a PDF.
+2. **Local / Vision OCR** — Extracts text using local Python engines (PaddleOCR, Ollama, Tesseract) or cloud-hosted multimodal models (Gemini 2.0 Flash via OpenRouter / Mistral API). Results are MD5-cached in SQLite for 90 days — re-uploads of the same file are instant and completely local.
+3. **PII Scrubbing** — Before any external gap analysis, a strict `scrubPII()` function strips all personal identifiers (passport numbers, exact balances, full names, account numbers) and replaces them with anonymised summary logic.
+4. **Gap Analysis** — A reasoning LLM compares the scrubbed, anonymised summaries against the country-specific visa checklist and returns a structured JSON evaluation report.
+5. **Scored Report** — Displays an overall probability score (0–100), a 5-category component breakdown, gap analysis table, key strengths, critical gaps, and numbered recommendations on an interactive dashboard downloadable as a formatted PDF.
 
 ### Supported Visa Types (MVP)
 | ID | Country | Visa Type |
@@ -22,31 +22,25 @@ An AI-powered visa document review platform that reads applicant documents, vali
 
 ---
 
-## Solution Proposal
-
-Open [`index.html`](./index.html) in any browser for the full customer-facing solution proposal — a mobile-responsive, single-file document covering the problem, AI pipeline, data privacy architecture, cost analysis, tech stack, and delivery roadmap.
-
----
-
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 16 (App Router, TypeScript) |
-| Styling | Tailwind CSS + shadcn/ui |
-| Database | SQLite via `better-sqlite3` + Drizzle ORM |
-| AI — OCR | `google/gemma-4-26b-it:free` via OpenRouter |
-| AI — Analysis | `deepseek/deepseek-r1:free` via OpenRouter |
-| PDF Generation | `@react-pdf/renderer` |
-| PDF Parsing | `pdfjs-dist` + `canvas` |
+| Layer | Technology | Description |
+|---|---|---|
+| Framework | Next.js 16 (App Router, TypeScript) | Core frontend and backend dispatcher |
+| Styling | Tailwind CSS + shadcn/ui | Component UI architecture |
+| Database | SQLite via `better-sqlite3` + Drizzle ORM | Local relational storage with WAL mode enabled |
+| **Local OCR Sidecar** | Python FastAPI + PaddleOCR / Ollama | **100% offline text extraction (local default)** |
+| Cloud OCR Fallbacks | Gemini 2.0 Flash / Mistral Small 3.1 | Switchable via `OCR_MODE` environment override |
+| AI Analysis | `deepseek/deepseek-r1:free` via OpenRouter | Free reasoning model for intelligent gap assessment |
+| PDF Generation | `@react-pdf/renderer` | Client/server PDF document builder |
 
 ---
 
 ## Prerequisites
 
-- **Node.js** ≥ 18.17 (check with `node -v`)
-- **npm** ≥ 9 (check with `npm -v`)
-- **OpenRouter API key** — free account at [openrouter.ai/keys](https://openrouter.ai/keys)
+- **Node.js** ≥ 18.17
+- **Python** ≥ 3.10 (for running the local OCR sidecar service)
+- **OpenRouter API key** — get yours free at [openrouter.ai/keys](https://openrouter.ai/keys)
 
 ---
 
@@ -59,68 +53,90 @@ git clone <your-repo-url>
 cd visa-application-validator
 ```
 
-### 2. Install dependencies
+### 2. Set up the Local Python OCR Sidecar Service (Required for Local Mode)
+
+Initialize the Python virtual environment and install dedicated computer vision packages:
+
+```bash
+# Create and activate virtual environment
+python3 -m venv ocr-service/venv
+source ocr-service/venv/bin/activate  # Windows: ocr-service\venv\Scripts\activate
+
+# Install dependencies (FastAPI, Uvicorn, PaddleOCR, pdf2image, etc.)
+pip install -r ocr-service/requirements.txt
+
+# Start the sidecar service on port 8000
+python ocr-service/main.py
+```
+> **Note:** The local OCR service listens on `http://localhost:8000`. The first run will automatically download standard lightweight OCR models (~100MB) directly into local cache.
+
+### 3. Install Node.js Dependencies
+
+Open a second terminal tab/window in the project root:
 
 ```bash
 npm install
 ```
+> *Installs native bindings (`better-sqlite3`, `canvas`). On macOS, ensure Xcode Command Line Tools are active (`xcode-select --install`).*
 
-> This installs all packages including `better-sqlite3` (native binary — requires a C++ build toolchain). On macOS, Xcode Command Line Tools must be installed (`xcode-select --install`).
+### 4. Configure Environment Variables
 
-### 3. Configure environment variables
-
-Copy the example file and fill in your OpenRouter key:
+Copy the template file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Open `.env.local` and set your key:
+Open `.env.local` and configure your API keys and preferred OCR mode:
 
 ```env
-# Required — get yours free at https://openrouter.ai/keys
+# Required — OpenRouter key for Gap Analysis
 OPENROUTER_API_KEY=sk-or-your-key-here
 
-# Optional — these are the defaults, change only if needed
-MODEL_OCR=google/gemma-4-26b-it:free
+# OCR Mode Configuration — 'local' (sidecar) | 'openrouter' (cloud default) | 'mistral'
+OCR_MODE=local
+
+# Local sidecar API endpoint (used when OCR_MODE=local)
+LOCAL_OCR_URL=http://localhost:8000
+# LOCAL_OCR_ENGINE=paddle   # 'paddle' (default) | 'tesseract' | 'ollama'
+
+# Optional Model Overrides
+MODEL_OCR=google/gemini-2.0-flash-exp:free
 MODEL_ANALYSIS=deepseek/deepseek-r1:free
 
 NEXT_PUBLIC_URL=http://localhost:3000
 DEMO_MODE=true
 ```
 
-> **Note:** `.env.local` is gitignored and will never be committed. `.env.example` is the safe committed template.
+### 5. Initialize the Database
 
-### 4. Set up the database
-
-Create the local SQLite database and run migrations:
+Generate and apply local SQLite schema migrations:
 
 ```bash
 mkdir -p data
 npx drizzle-kit generate
 npx drizzle-kit migrate
 ```
+> *Creates `./data/visa-mvp.db` containing reviews, cache entries, and extraction payloads.*
 
-This creates `./data/visa-mvp.db` — a local SQLite file that stores all reviews, documents, extractions, and results. It is gitignored.
-
-### 5. Start the development server
+### 6. Start the Next.js Development Server
 
 ```bash
 npm run dev
 ```
 
-The app will be available at **[http://localhost:3000](http://localhost:3000)**.
+The review interface is now fully accessible at **[http://localhost:3000](http://localhost:3000)**.
 
 ---
 
 ## Using the Demo
 
-1. **Open** [http://localhost:3000](http://localhost:3000) — you'll see the landing page.
-2. **Click** "Try Demo" to begin.
-3. **Step 1 — Select visa type:** Choose UK or Schengen, enter a nationality.
-4. **Step 2 — Upload documents:** Drag and drop files (passport, bank statement, employment letter, etc.). Select the document type for each upload.
-5. **Step 3 — Processing:** Watch the live step indicator as the AI pipeline runs (OCR → PII scrub → gap analysis). Takes 1–3 minutes on first run; repeat uploads use the cache and are near-instant.
-6. **Step 4 — Results:** View the probability score, breakdown chart, and gap analysis table. Download the PDF report. Click "How is your data protected?" to see the PII explainer.
+1. **Launch** [http://localhost:3000](http://localhost:3000) and click **"Try Demo"**.
+2. **Step 1 — Select visa type:** Choose UK or Schengen, input a test nationality.
+3. **Step 2 — Upload documents:** Drag and drop sample document files. Assign specific type labels (e.g., Passport, Bank Statement).
+4. **Step 3 — Live Processing:** Watch real-time visual progress ticks. Notice the dedicated local-privacy messaging badge confirming **"OCR running locally — document stays on this machine"**.
+5. **Step 4 — Review Results:** Assess the visual probability score gauge, sub-component breakdowns, and critical gap recommendations. Click **"How is your data protected?"** to visually inspect exact local extractions versus scrubbed cloud payloads.
+6. **Re-upload Verification:** Re-submit identical files to instantly observe perfect zero-latency SQLite MD5 cache hits.
 
 ---
 
@@ -128,127 +144,43 @@ The app will be available at **[http://localhost:3000](http://localhost:3000)**.
 
 ```
 visa-application-validator/
-├── app/
-│   ├── page.tsx                    # Landing page
-│   ├── demo/page.tsx               # Step 1 — select visa type
-│   ├── upload/[id]/page.tsx        # Step 2 — upload documents
-│   ├── processing/[id]/page.tsx    # Step 3 — live AI progress
-│   ├── results/[id]/page.tsx       # Step 4 — report
-│   ├── pii-explainer/[id]/page.tsx # PII before/after explainer
-│   └── api/
-│       └── reviews/
-│           ├── route.ts                    # POST — create review
-│           └── [id]/
-│               ├── documents/route.ts      # POST — upload file
-│               ├── start/route.ts          # POST — trigger AI pipeline
-│               ├── status/route.ts         # GET  — poll status
-│               ├── result/route.ts         # GET  — fetch result
-│               └── report.pdf/route.ts     # GET  — download PDF
-├── components/
-│   ├── ScoreGauge.tsx              # Animated circular score gauge
-│   ├── GapAnalysisTable.tsx        # Colour-coded gap table
-│   ├── ProbabilityBreakdown.tsx    # 5-bar animated breakdown
-│   ├── ProcessingSteps.tsx         # Live step tracker (polls /status)
-│   └── PIIComparison.tsx           # Side-by-side PII before/after
+├── app/                            # Next.js App Router Page Layouts
+├── components/                     # Interactive UI Components (ScoreGauge, ProcessingSteps)
 ├── lib/
 │   ├── ai/
-│   │   ├── openrouter.ts           # Shared OpenAI-compat client
-│   │   ├── ocr.ts                  # Vision extraction
-│   │   ├── ocrCache.ts             # MD5 hash-based cache (90-day TTL)
-│   │   ├── pdfToImages.ts          # PDF → PNG for vision models
-│   │   ├── scrubPII.ts             # Full PII scrubber
-│   │   ├── analysis.ts             # Gap analysis
-│   │   └── types.ts                # Shared TypeScript interfaces
-│   ├── checklists/
-│   │   ├── UK-SVV-01.json          # UK Standard Visitor checklist
-│   │   ├── SCH-CSS-01.json         # Schengen Short Stay checklist
-│   │   └── index.ts                # Checklist loader
-│   └── db/
-│       ├── schema.ts               # Drizzle SQLite schema
-│       └── index.ts                # DB client (WAL mode enabled)
-├── data/                           # SQLite DB lives here (gitignored)
-├── drizzle/                        # Auto-generated migration files
-├── index.html                      # Customer-facing solution proposal
-├── drizzle.config.ts
-├── next.config.ts
-├── .env.example                    # Safe template — commit this
-└── .env.local                      # Your secrets — never commit this
+│   │   ├── ocr.ts                  # Multi-mode OCR Dispatcher (local | openrouter | mistral)
+│   │   ├── scrubPII.ts             # Data Scrubbing safety layer
+│   │   └── analysis.ts             # OpenRouter Gap Analysis adapter
+│   ├── checklists/                 # Visa Rules JSON Schemas
+│   └── db/                         # Drizzle ORM Config and SQLite drivers
+├── ocr-service/                    # Local Python Computer Vision Sidecar
+│   ├── main.py                     # FastAPI server engine supporting PaddleOCR/Ollama
+│   ├── requirements.txt            # Locked pip packages
+│   └── ocr_cache.db                # Auto-managed standalone local SQLite cache
+├── data/                           # Application SQLite DB storage
+├── index.html                      # Customer Proposal Static Page
+└── .env.local                      # Runtime Configuration secrets
 ```
-
----
-
-## Database Schema
-
-| Table | Purpose |
-|---|---|
-| `reviews` | Review sessions — status, checklist ID, nationality |
-| `documents` | Uploaded files — stored as BLOBs with MD5 hash |
-| `document_extractions` | OCR cache — keyed by MD5 hash, 90-day TTL |
-| `review_results` | Final gap analysis output + scrubbed input for PII explainer |
-
----
-
-## API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/reviews` | Create a new review session |
-| `POST` | `/api/reviews/:id/documents` | Upload a document (multipart/form-data) |
-| `POST` | `/api/reviews/:id/start` | Trigger the AI pipeline (fires background job) |
-| `GET` | `/api/reviews/:id/status` | Poll processing status |
-| `GET` | `/api/reviews/:id/result` | Fetch full gap analysis result |
-| `GET` | `/api/reviews/:id/report.pdf` | Download PDF report |
-
----
-
-## Resetting the Database
-
-To wipe all data and start fresh:
-
-```bash
-rm data/visa-mvp.db
-npx drizzle-kit migrate
-```
-
----
-
-## Environment Variables Reference
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `OPENROUTER_API_KEY` | ✅ Yes | — | Your OpenRouter API key |
-| `MODEL_OCR` | No | `google/gemma-4-26b-it:free` | Vision model for OCR extraction |
-| `MODEL_ANALYSIS` | No | `deepseek/deepseek-r1:free` | Reasoning model for gap analysis |
-| `NEXT_PUBLIC_URL` | No | `http://localhost:3000` | App base URL (used in API headers) |
-| `DEMO_MODE` | No | `true` | Enables demo mode (bypasses auth) |
-| `SQLITE_DB_PATH` | No | `./data/visa-mvp.db` | Custom path for the SQLite database |
 
 ---
 
 ## Troubleshooting
 
-**`Cannot open database because the directory does not exist`**
-```bash
-mkdir -p data && npx drizzle-kit migrate
-```
-
-**`better-sqlite3` build error on install**
-```bash
-xcode-select --install   # macOS only
-npm install
-```
-
-**OCR returns empty or garbled results**
-- Ensure `OPENROUTER_API_KEY` is set correctly in `.env.local`
-- Check the model is available free at [openrouter.ai/models](https://openrouter.ai/models?q=free)
-- Try switching `MODEL_OCR` to `google/gemini-2.0-flash-exp:free`
-
-**Review stays in `processing` forever**
-- Check the terminal running `npm run dev` for error logs — the background pipeline logs all steps
-- The review will be marked `failed` after an error, and you can retry from the processing page
+* **`Local OCR service is not running` error during review processing:**
+  Ensure the Python sidecar is fully activated in a separate terminal:
+  ```bash
+  cd ocr-service && source venv/bin/activate && python main.py
+  ```
+* **Address already in use (`[Errno 48]`) on port 8000:**
+  Terminate lingering local server instances listening on port 8000:
+  ```bash
+  lsof -ti :8000 | xargs kill -9
+  ```
+* **Missing packages during pip install:**
+  Ensure the virtual environment is successfully activated before executing pip installations.
 
 ---
 
 ## License
 
-Internal — For customer review and demonstration purposes only.
+Internal — Intended strictly for architectural validation and customer software demonstrations.
