@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
     'pdfjs-dist',
     '@react-pdf/renderer',
   ],
+  // Expose OCR_MODE to client components (ProcessingSteps.tsx)
+  env: {
+    NEXT_PUBLIC_OCR_MODE: process.env.OCR_MODE ?? 'openrouter',
+  },
 };
 
 export default nextConfig;

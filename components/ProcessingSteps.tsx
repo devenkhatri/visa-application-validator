@@ -2,44 +2,83 @@
 import { useEffect, useState } from 'react';
 
 interface ProcessingStepsProps {
-  reviewId: string;
+  reviewId:   string;
   onComplete: () => void;
   onFailed:   () => void;
 }
+
+// Exposed from server at build time — 'local' | 'openrouter' | 'mistral'
+const OCR_MODE = process.env.NEXT_PUBLIC_OCR_MODE ?? 'openrouter';
+
+const isLocal   = OCR_MODE === 'local';
+const isMistral = OCR_MODE === 'mistral';
+
+function ocrLabel() {
+  if (isLocal)   return 'OCR running locally — document stays on this machine';
+  if (isMistral) return 'Extracting text with Mistral AI...';
+  return 'Extracting text with vision AI...';
+}
+
+function ocrDoneLabel() {
+  if (isLocal)   return 'OCR complete — documents read locally, nothing sent to internet';
+  if (isMistral) return 'OCR complete — documents read via Mistral';
+  return 'OCR complete — documents read';
+}
+
+function cacheCheckLabel()  { return isLocal ? 'Checking OCR cache (local + cloud)...' : 'Checking OCR cache...'; }
+function cacheMissLabel()   { return isLocal ? 'Cache miss — running local OCR...' : 'Cache miss — running cloud OCR...'; }
 
 interface Step {
   id:      string;
   label:   string;
   done:    string;
-  pending: string;
 }
 
 const STEPS: Step[] = [
-  { id: 'received',   label: 'Documents received',                              done: 'Documents received',                              pending: 'Waiting...' },
-  { id: 'ocr-start',  label: 'Extracting text with vision AI...',              done: 'OCR started',                                     pending: 'Extracting text with vision AI...' },
-  { id: 'ocr-done',   label: 'OCR complete',                                   done: 'OCR complete — documents read',                   pending: 'Reading documents...' },
-  { id: 'scrub',      label: 'Scrubbing personal data before AI analysis...', done: 'PII scrubbed — passport numbers & balances removed', pending: 'Scrubbing personal data before AI analysis...' },
-  { id: 'analyse',    label: 'Analysing against visa checklist...',            done: 'Analysis complete',                               pending: 'Analysing against visa checklist...' },
-  { id: 'report',     label: 'Generating report...',                           done: 'Report generated',                               pending: 'Generating report...' },
-  { id: 'done',       label: 'Done',                                           done: '✨ Review complete',                             pending: 'Finalising...' },
+  {
+    id:    'received',
+    label: 'Documents received and fingerprinted',
+    done:  'Documents received and fingerprinted',
+  },
+  {
+    id:    'cache-check',
+    label: cacheCheckLabel(),
+    done:  'OCR cache checked',
+  },
+  {
+    id:    'ocr',
+    label: ocrLabel(),
+    done:  ocrDoneLabel(),
+  },
+  {
+    id:    'scrub',
+    label: 'Scrubbing personal data before AI analysis...',
+    done:  'PII scrubbed — passport numbers & balances removed',
+  },
+  {
+    id:    'analyse',
+    label: isLocal
+      ? 'Sending anonymised summary to AI for gap analysis...'
+      : 'Analysing against visa checklist...',
+    done:  'Analysis complete',
+  },
+  {
+    id:    'report',
+    label: 'Generating report...',
+    done:  'Report generated',
+  },
+  {
+    id:    'done',
+    label: 'Finalising...',
+    done:  '✨ Review complete',
+  },
 ];
 
 type StepStatus = 'done' | 'active' | 'pending';
 
-// Map backend review status → how many steps are "done"
-function statusToSteps(status: string): number {
-  switch (status) {
-    case 'pending':    return 1;
-    case 'processing': return 4; // OCR + scrub in progress
-    case 'completed':  return STEPS.length;
-    case 'failed':     return -1;
-    default:           return 0;
-  }
-}
-
 export default function ProcessingSteps({ reviewId, onComplete, onFailed }: ProcessingStepsProps) {
-  const [doneCount, setDoneCount]   = useState(1);
-  const [error,     setError]       = useState(false);
+  const [doneCount, setDoneCount] = useState(1);
+  const [error,     setError]     = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,7 +101,7 @@ export default function ProcessingSteps({ reviewId, onComplete, onFailed }: Proc
           return;
         }
 
-        // Simulate step ticks while processing
+        // Animate steps forward while polling
         setDoneCount(prev => Math.min(prev + 1, STEPS.length - 1));
         timer = setTimeout(poll, 2000);
       } catch {
@@ -90,13 +129,10 @@ export default function ProcessingSteps({ reviewId, onComplete, onFailed }: Proc
                                     'bg-white/5 border border-white/5 opacity-40'
             }`}
           >
-            {/* Icon */}
             <span className="text-lg mt-0.5 shrink-0">
               {status === 'done'   ? '✅' :
                status === 'active' ? '⏳' : '○'}
             </span>
-
-            {/* Label */}
             <span className={`text-sm leading-snug ${
               status === 'done'   ? 'text-green-400 font-medium' :
               status === 'active' ? 'text-blue-300 font-medium'  :
@@ -108,9 +144,21 @@ export default function ProcessingSteps({ reviewId, onComplete, onFailed }: Proc
         );
       })}
 
+      {/* Local OCR privacy badge */}
+      {isLocal && (
+        <div className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+          <span className="text-emerald-400 text-xs">🔒</span>
+          <p className="text-emerald-400 text-xs font-medium">
+            Documents stay on this machine — OCR runs locally
+          </p>
+        </div>
+      )}
+
       {error && (
         <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-          Review failed. Please try again.
+          {isLocal
+            ? 'Review failed. Is the local OCR service running? (python ocr-service/main.py)'
+            : 'Review failed. Please try again.'}
         </div>
       )}
     </div>

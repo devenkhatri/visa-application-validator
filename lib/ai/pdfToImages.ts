@@ -128,11 +128,12 @@ export async function toBase64Images(
 
       const { canvas, context } = canvasFactory.create(viewport.width, viewport.height);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.render({
-        canvasContext:  context as unknown as CanvasRenderingContext2D,
+        canvasContext: context as unknown as CanvasRenderingContext2D,
         viewport,
-        canvasFactory:  canvasFactory as unknown as import('pdfjs-dist').CanvasFactory,
-      }).promise;
+        canvasFactory,
+      } as any).promise;
 
       // Export as PNG base64 (strip the data: URI prefix)
       const dataUrl = canvas.toDataURL('image/png');
