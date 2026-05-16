@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visa AI Review System — Solution Proposal v2.0</title>
+  <title>Visa AI Review System — Solution Proposal v1.0</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link
     href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap"
@@ -3374,6 +3374,18 @@
       .quest-right {
         background: white
       }
+
+      .checklist-summary {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px
+      }
+
+      .checklist-summary-item {
+        width: 100%;
+        justify-content: space-between;
+        font-size: 11px
+      }
     }
 
     @media(max-width:480px) {
@@ -3399,6 +3411,14 @@
         font-size: 15px
       }
 
+      .checklist-summary {
+        gap: 10px
+      }
+
+      .checklist-summary-item {
+        font-size: 12px
+      }
+
       .checklist-item-name {
         font-size: 11px
       }
@@ -3420,7 +3440,7 @@
     <div class="nav-brand">
       <div class="nav-logo">V</div>
       <div class="nav-name">Visa AI Review</div>
-      <span class="nav-badge">v2.0</span>
+      <span class="nav-badge">v1.0</span>
     </div>
     <ul class="nav-links">
       <li><a href="#problem">Problem</a></li>
@@ -3490,7 +3510,7 @@
     <div class="hero-bg"></div>
     <div class="hero-grid"></div>
     <div class="hero-left">
-      <div class="hero-eyebrow"><span class="hero-dot"></span>AI-Powered Solution Proposal v2.0</div>
+      <div class="hero-eyebrow"><span class="hero-dot"></span>AI-Powered Solution Proposal v1.0</div>
       <h1 class="hero-title">Smarter Visa<br><em>Document Review</em><br>— Zero Data Leakage</h1>
       <p class="hero-subtitle">An intelligent platform that reads visa application documents <strong>locally on your
           server</strong>, validates them against country-specific requirements, and delivers a probability score and
@@ -3662,7 +3682,7 @@
             <div class="pipeline-num">3</div>
           </div>
           <div class="pipeline-content">
-            <div class="pipeline-step-tag">Local OCR Extraction — New in v2.0</div>
+            <div class="pipeline-step-tag">Local OCR Extraction — New in v1.0</div>
             <div class="pipeline-step-title">Documents read locally — nothing leaves your machine</div>
             <div class="pipeline-step-body">On a cache miss, the document is processed by a Python FastAPI service
               running locally on your server — never sent to any cloud API. PaddleOCR (the default engine) achieves
@@ -4050,7 +4070,7 @@
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:32px" class="reveal">
+      <div style="display:grid;grid-template-columns:repeat(1,1fr);gap:20px;margin-top:32px" class="reveal">
         <div
           style="background:var(--purple-light);border:1px solid rgba(91,63,166,.15);border-radius:14px;padding:22px">
           <div style="font-size:22px;margin-bottom:10px">🎯</div>
@@ -4082,7 +4102,7 @@
   <!-- ═══ LOCAL OCR ════════════════════════════════════════════════════════ -->
   <section id="localocr">
     <div class="section-inner">
-      <div class="section-tag">Local OCR — New in v2.0</div>
+      <div class="section-tag">Local OCR — New in v1.0</div>
       <h2 class="section-title">Documents <em>never leave</em><br>your infrastructure</h2>
       <p class="section-lead">Unlike cloud OCR services, our local OCR service runs as a Python sidecar on your own
         server. Three engine options — choose based on your hardware and accuracy requirements. Switch to Mistral cloud
@@ -4310,7 +4330,7 @@
     <div class="section-inner">
       <div class="section-tag">System Architecture</div>
       <h2 class="section-title">Five layers.<br><em>Local-first</em> design.</h2>
-      <p class="section-lead">The updated v2.0 architecture keeps all document processing local and only sends
+      <p class="section-lead">The updated v1.0 architecture keeps all document processing local and only sends
         anonymised data to cloud services. Each layer has a clear responsibility — security, maintainability, and easy
         scaling.</p>
       <div class="arch-layers reveal">
