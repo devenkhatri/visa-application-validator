@@ -33,7 +33,7 @@ export default function DemoPage() {
       if (!res.ok) throw new Error('Failed to create review');
 
       const { id } = await res.json() as { id: string };
-      router.push(`/upload/${id}`);
+      router.push(`/questionnaire/${id}`);
     } catch {
       setError('Something went wrong. Please try again.');
       setLoading(false);
@@ -44,18 +44,24 @@ export default function DemoPage() {
     <main className="min-h-screen bg-[#080c1a] text-white flex items-center justify-center px-6">
       <div className="w-full max-w-lg">
         {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-10 text-sm text-white/40">
-          <span className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">1</span>
-          <span className="text-white/70 font-medium">Select Visa Type</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">2</span>
-          <span>Upload Docs</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">3</span>
-          <span>Processing</span>
-          <span className="flex-1 h-px bg-white/10" />
-          <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-xs">4</span>
-          <span>Results</span>
+        <div className="flex items-center gap-1.5 mb-10 text-xs text-white/40 overflow-x-auto pb-2">
+          <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0">1</span>
+          <span className="text-white/70 font-medium shrink-0">Select Visa</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">2</span>
+          <span className="shrink-0">Questionnaire</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">3</span>
+          <span className="shrink-0">Checklist</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">4</span>
+          <span className="shrink-0">Upload</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">5</span>
+          <span className="shrink-0">Processing</span>
+          <span className="w-3 h-px bg-white/10 shrink-0" />
+          <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">6</span>
+          <span className="shrink-0">Results</span>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm p-8 space-y-6">
@@ -120,7 +126,7 @@ export default function DemoPage() {
                 Starting…
               </>
             ) : (
-              'Start Review →'
+              'Build My Checklist →'
             )}
           </button>
         </div>

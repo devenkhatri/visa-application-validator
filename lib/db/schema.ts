@@ -1,4 +1,4 @@
-// lib/db/schema.ts — Drizzle SQLite schema (4 tables)
+// lib/db/schema.ts — Drizzle SQLite schema (6 tables)
 import { sqliteTable, text, integer, real, blob } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
@@ -59,6 +59,46 @@ export const reviewResults = sqliteTable('review_results', {
   verdict:        text('verdict'),
   scrubbedInput:  text('scrubbed_input', { mode: 'json' }).$type<Record<string, unknown>[]>(),
   createdAt:      text('created_at')
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+});
+
+// ─── checklist_profiles ───────────────────────────────────────────────────────
+// Stores questionnaire answers + Claude-generated personalised checklist per review
+export const checklistProfiles = sqliteTable('checklist_profiles', {
+  id:                   text('id').primaryKey(),
+  reviewId:             text('review_id')
+    .notNull()
+    .references(() => reviews.id, { onDelete: 'cascade' }),
+  baseChecklistId:      text('base_checklist_id').notNull(),
+  questionnaireAnswers: text('questionnaire_answers', { mode: 'json' }).notNull().$type<Record<string, string>>(),
+  generatedChecklist:   text('generated_checklist',   { mode: 'json' }).notNull().$type<Record<string, unknown>>(),
+  profileFlags:         text('profile_flags',         { mode: 'json' }).$type<string[]>(),
+  highRiskFactors:      text('high_risk_factors',     { mode: 'json' }).$type<string[]>(),
+  strengths:            text('strengths',             { mode: 'json' }).$type<string[]>(),
+  specialInstructions:  text('special_instructions'),
+  generatedAt:          text('generated_at')
+    .notNull()
+    .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+});
+
+// ─── application_events ───────────────────────────────────────────────────────
+// Stage-by-stage event log written by the background pipeline
+// Stages: QUESTIONNAIRE_COMPLETE | OCR_CACHE_CHECK | OCR_EXTRACTION |
+//         PII_SCRUB | CLAUDE_ANALYSIS | REPORT_GENERATED
+export const applicationEvents = sqliteTable('application_events', {
+  id:            text('id').primaryKey(),
+  reviewId:      text('review_id')
+    .notNull()
+    .references(() => reviews.id, { onDelete: 'cascade' }),
+  stage:         text('stage').notNull(),
+  status:        text('status', {
+    enum: ['completed', 'failed', 'skipped'],
+  }).notNull().default('completed'),
+  outputSummary: text('output_summary', { mode: 'json' }).$type<Record<string, unknown>>(),
+  metadata:      text('metadata',       { mode: 'json' }).$type<Record<string, unknown>>(),
+  durationMs:    integer('duration_ms'),
+  createdAt:     text('created_at')
     .notNull()
     .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
 });

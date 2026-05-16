@@ -1,13 +1,13 @@
 // app/api/reviews/[id]/start/route.ts — POST: trigger the AI review pipeline
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { reviews, documents, reviewResults } from '@/lib/db/schema';
+import { reviews, documents, reviewResults, checklistProfiles, applicationEvents } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashFile, getCachedExtraction, cacheExtraction } from '@/lib/ai/ocrCache';
 import { extractDocument } from '@/lib/ai/ocr';
 import { analyseApplication } from '@/lib/ai/analysis';
 import { scrubPII } from '@/lib/ai/scrubPII';
-import type { RawExtraction } from '@/lib/ai/types';
+import type { RawExtraction, PersonalisedChecklist } from '@/lib/ai/types';
 import crypto from 'crypto';
 
 export async function POST(
@@ -27,14 +27,10 @@ export async function POST(
     return NextResponse.json({ error: 'Review not found' }, { status: 404 });
   }
 
-  if (review[0].status === 'completed') {
-    return NextResponse.json({ status: review[0].status });
-  }
-
-  // Set status to processing immediately
+  // Reset status to processing (allows re-run)
   await db
     .update(reviews)
-    .set({ status: 'processing' })
+    .set({ status: 'processing', completedAt: null })
     .where(eq(reviews.id, reviewId));
 
   // Fire-and-forget — intentionally not awaited
@@ -43,10 +39,56 @@ export async function POST(
   return NextResponse.json({ status: 'processing' });
 }
 
-// ─── Background pipeline ──────────────────────────────────────────────────────
-
-async function processReviewInBackground(reviewId: string, checklistId: string) {
+// ─── Helper: log a pipeline event ─────────────────────────────────────────────
+async function logEvent(
+  reviewId:      string,
+  stage:         string,
+  outputSummary: Record<string, unknown>,
+  durationMs:    number,
+  status:        'completed' | 'failed' | 'skipped' = 'completed',
+) {
   try {
+    await db.insert(applicationEvents).values({
+      id:            crypto.randomUUID(),
+      reviewId,
+      stage,
+      status,
+      outputSummary,
+      durationMs,
+    });
+  } catch (e) {
+    // Never let event logging crash the main pipeline
+    console.error('[logEvent] failed to write event:', stage, e);
+  }
+}
+
+// ─── Background pipeline ──────────────────────────────────────────────────────
+async function processReviewInBackground(reviewId: string, checklistId: string) {
+  const pipelineStart = Date.now();
+
+  try {
+    // ── Stage 0: Load personalised checklist (if questionnaire was completed) ──
+    const stageQStart = Date.now();
+    const profileRows = await db
+      .select()
+      .from(checklistProfiles)
+      .where(eq(checklistProfiles.reviewId, reviewId))
+      .limit(1);
+
+    const profile = profileRows[0] ?? null;
+    const personalisedChecklist = profile
+      ? (profile.generatedChecklist as unknown as PersonalisedChecklist)
+      : undefined;
+
+    const checklistItemCount = personalisedChecklist?.checklist_items?.length ?? 0;
+
+    await logEvent(reviewId, 'QUESTIONNAIRE_COMPLETE', {
+      has_personalised_checklist: !!personalisedChecklist,
+      checklist_item_count:       checklistItemCount,
+      profile_flags:              profile?.profileFlags ?? [],
+    }, Date.now() - stageQStart);
+
+    // ── Stage 1: Load documents ───────────────────────────────────────────────
     const docs = await db
       .select()
       .from(documents)
@@ -56,31 +98,82 @@ async function processReviewInBackground(reviewId: string, checklistId: string) 
       throw new Error('No documents found for this review');
     }
 
-    // 1. OCR each document (hash → cache check → Mistral → cache write)
+    // ── Stage 2+3: OCR each document (cache check → extract → cache write) ───
     const extractions: RawExtraction[] = [];
+    let cacheHits = 0;
 
     for (const doc of docs) {
       const buffer = doc.fileData as Buffer;
       const hash   = hashFile(buffer);
 
+      const cacheCheckStart = Date.now();
       let extraction = await getCachedExtraction(hash);
 
       if (extraction) {
+        cacheHits++;
+        await logEvent(reviewId, 'OCR_CACHE_CHECK', {
+          cache_hit:     true,
+          filename:      doc.filename,
+          document_type: doc.documentType,
+        }, Date.now() - cacheCheckStart);
         console.log(`[OCR] Cache HIT for ${doc.filename} (${hash})`);
       } else {
+        await logEvent(reviewId, 'OCR_CACHE_CHECK', {
+          cache_hit:     false,
+          filename:      doc.filename,
+          document_type: doc.documentType,
+        }, Date.now() - cacheCheckStart);
+
+        const ocrStart = Date.now();
         console.log(`[OCR] Cache MISS for ${doc.filename} — calling LLM`);
         extraction = await extractDocument(buffer, doc.mimeType, doc.documentType);
         await cacheExtraction(hash, doc.documentType, extraction);
+
+        await logEvent(reviewId, 'OCR_EXTRACTION', {
+          filename:        doc.filename,
+          document_type:   doc.documentType,
+          confidence:      extraction.confidence_score,
+          engine:          extraction.ocr_engine ?? 'openrouter',
+          warnings:        extraction.warnings,
+        }, Date.now() - ocrStart);
       }
 
       extractions.push(extraction);
     }
 
-    // 2. Gap analysis (scrubPII happens inside analyseApplication)
-    const result = await analyseApplication(checklistId, extractions);
+    // ── Stage 4: PII scrubbing ────────────────────────────────────────────────
+    const piiStart  = Date.now();
+    const scrubbed  = scrubPII(extractions);
+    const fieldsOut = scrubbed.reduce(
+      (acc, d) => acc + Object.keys(d.field_summary).length, 0,
+    );
+    await logEvent(reviewId, 'PII_SCRUB', {
+      documents_scrubbed:   extractions.length,
+      fields_in_summary:    fieldsOut,
+      passport_numbers_out: true,
+      balances_out:         true,
+    }, Date.now() - piiStart);
 
-    // 3. Store scrubbed input alongside results (used by PII explainer page)
-    const scrubbedInput = scrubPII(extractions);
+    // ── Stage 5: Claude gap analysis ─────────────────────────────────────────
+    const analysisStart = Date.now();
+    const result = await analyseApplication(
+      checklistId,
+      extractions,
+      scrubbed,
+      personalisedChecklist,
+    );
+    await logEvent(reviewId, 'CLAUDE_ANALYSIS', {
+      overall_score: result.overall_score,
+      verdict:       result.verdict,
+      gap_count:     result.gap_analysis.length,
+      used_personalised_checklist: !!personalisedChecklist,
+    }, Date.now() - analysisStart);
+
+    // ── Stage 6: Save results + report generated ──────────────────────────────
+    const reportStart = Date.now();
+
+    // Delete any previous result for re-run scenario
+    await db.delete(reviewResults).where(eq(reviewResults.reviewId, reviewId));
 
     await db.insert(reviewResults).values({
       id:             crypto.randomUUID(),
@@ -89,18 +182,30 @@ async function processReviewInBackground(reviewId: string, checklistId: string) 
       overallScore:   result.overall_score,
       scoreBreakdown: result.score_breakdown as unknown as Record<string, number>,
       verdict:        result.verdict,
-      scrubbedInput:  scrubbedInput as unknown as Record<string, unknown>[],
+      scrubbedInput:  scrubbed as unknown as Record<string, unknown>[],
     });
 
-    // 4. Mark completed
+    await logEvent(reviewId, 'REPORT_GENERATED', {
+      overall_score: result.overall_score,
+      verdict:       result.verdict,
+      total_duration_ms: Date.now() - pipelineStart,
+      cache_hits:    cacheHits,
+      total_docs:    docs.length,
+    }, Date.now() - reportStart);
+
+    // Mark completed
     await db
       .update(reviews)
       .set({ status: 'completed', completedAt: new Date().toISOString() })
       .where(eq(reviews.id, reviewId));
 
-    console.log(`[Review ${reviewId}] completed — score: ${result.overall_score}`);
+    console.log(`[Review ${reviewId}] completed — score: ${result.overall_score} in ${Date.now() - pipelineStart}ms`);
+
   } catch (err) {
     console.error(`[Review ${reviewId}] failed:`, err);
+    await logEvent(reviewId, 'PIPELINE_ERROR', {
+      error: err instanceof Error ? err.message : String(err),
+    }, Date.now() - pipelineStart, 'failed');
     await db
       .update(reviews)
       .set({ status: 'failed' })

@@ -17,8 +17,29 @@ const FEATURES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#080c1a] text-white">
+      {/* Top nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-[#080c1a]/80 backdrop-blur border-b border-white/5">
+        <span className="font-bold text-sm text-white/80">Visa AI Review</span>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/history"
+            id="history-nav-btn"
+            className="px-4 py-2 rounded-xl border border-white/10 text-white/60 text-sm font-medium hover:text-white hover:border-white/25 transition-all"
+          >
+            📋 History
+          </Link>
+          <Link
+            href="/demo"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors"
+          >
+            Try Demo →
+          </Link>
+        </div>
+      </nav>
+
+
       {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center px-6 pt-24 pb-20 text-center overflow-hidden">
+      <section className="relative flex flex-col items-center justify-center px-6 pt-40 pb-20 text-center overflow-hidden">
         {/* Gradient orbs */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-24 left-1/4 w-[300px] h-[300px] bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />

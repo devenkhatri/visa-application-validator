@@ -54,3 +54,30 @@ export interface AnalysisResult {
   critical_gaps: string[];
   recommended_actions: string[];
 }
+
+// ─── Questionnaire + personalised checklist ──────────────────────────────────
+
+export interface QuestionnaireAnswers {
+  employment_status:          'salaried' | 'self_employed' | 'student' | 'retired' | 'other';
+  purpose_of_visit:           'tourism' | 'business' | 'family' | 'medical' | 'study';
+  prior_travel_destination:   'approved' | 'refused' | 'never';
+  prior_international_travel: 'frequent' | 'occasional' | 'none';
+  property_ownership:         'yes' | 'no';
+  monthly_balance_range:      'below_50k' | '50k_2l' | '2l_10l' | 'above_10l';
+}
+
+export interface ChecklistItem {
+  document:     string;   // e.g. "3-year ITR + CA Certificate"
+  priority:     'required' | 'recommended' | 'optional';
+  reason:       string;   // personalised one-liner from Claude
+  score_impact: number;   // +N points
+}
+
+export interface PersonalisedChecklist {
+  checklist_items:      ChecklistItem[];
+  profile_flags:        string[];
+  high_risk_factors:    string[];
+  strengths:            string[];
+  special_instructions: string;
+}
+

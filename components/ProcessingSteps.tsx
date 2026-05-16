@@ -36,9 +36,14 @@ interface Step {
 
 const STEPS: Step[] = [
   {
+    id:    'checklist',
+    label: 'Applying personalised checklist to review…',
+    done:  'Personalised checklist applied',
+  },
+  {
     id:    'received',
-    label: 'Verified OCR properties mapped successfully',
-    done:  'Verified OCR properties mapped',
+    label: 'Verifying documents and fingerprinting files…',
+    done:  'Documents verified and fingerprinted',
   },
   {
     id:    'scrub',
@@ -49,7 +54,7 @@ const STEPS: Step[] = [
     id:    'analyse',
     label: isLocal
       ? 'Sending anonymised summary payload to AI for gap analysis...'
-      : 'Analysing application against country visa checklist...',
+      : 'Analysing application against personalised checklist...',
     done:  'Checklist gap analysis complete',
   },
   {

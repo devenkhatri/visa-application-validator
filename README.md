@@ -1,19 +1,20 @@
-# Visa AI Review System — MVP (v1.1)
+# Visa AI Review System — MVP (v1.2)
 
 An AI-powered visa document review platform that reads applicant documents, validates them against country-specific checklists, and delivers a probability score and gap analysis — in under 3 minutes, with full data privacy.
 
-> **v1.1 Update (Local-First Architecture):** OCR text extraction is now **local-first by default** using a dedicated Python FastAPI sidecar service (`ocr-service`). Documents **never leave the local machine** during text parsing and extraction. Cloud-based multimodal OCR via OpenRouter or Mistral is preserved as a seamless drop-in alternative.
+> **v1.2 Update (Advanced Features):** Introduced **Dynamic Personalised Questionnaires** to build custom checklists, **Application History** for tracking past reviews, and **Stage Timelines** for a complete audit trail of the AI processing pipeline.
 
 ---
 
 ## What It Does
 
-1. **Document Upload** — Accepts passport scans, bank statements, employment letters, and supporting documents (PDF, JPG, PNG, up to 10 MB each).
-2. **Local / Vision OCR** — Extracts text using local Python engines (PaddleOCR, Ollama, Tesseract) or cloud-hosted multimodal models (Gemini 2.0 Flash via OpenRouter / Mistral API). Results are MD5-cached in SQLite for 90 days — re-uploads of the same file are instant and completely local.
-3. **Editable OCR Review Screen** — Presents an intermediate validation dashboard mapping structured fields and unedited layout text. Users can manually amend extracted parameters or spelling discrepancies live before analysis.
-4. **PII Scrubbing** — Before any external gap analysis, a strict `scrubPII()` function strips all personal identifiers (passport numbers, exact balances, full names, account numbers) and replaces them with anonymised summary logic.
-5. **Gap Analysis** — A reasoning LLM compares the scrubbed, anonymised summaries against the country-specific visa checklist and returns a structured JSON evaluation report including clear descriptions of observed shortfalls.
-6. **Scored Report** — Displays an overall probability score (0–100), a 5-category component breakdown, a detailed gap analysis table (incorporating an **Observed Gap** column before recommendations), key strengths, critical gaps, and numbered recommendations on an interactive dashboard downloadable as a formatted PDF.
+1. **Personalised Questionnaire** — Builds a custom document checklist by asking 6 profile-specific questions (employment, purpose, travel history, etc.).
+2. **Document Upload** — Accepts passport scans, bank statements, employment letters, and supporting documents (PDF, JPG, PNG, up to 10 MB each).
+3. **Local / Vision OCR** — Extracts text using local Python engines (PaddleOCR, Ollama, Tesseract) or cloud-hosted multimodal models (Gemini 2.0 Flash via OpenRouter / Mistral API). Results are MD5-cached in SQLite for 90 days.
+4. **PII Scrubbing** — Before any external gap analysis, a strict `scrubPII()` function strips all personal identifiers and replaces them with anonymised summary logic.
+5. **Gap Analysis** — A reasoning LLM compares the scrubbed summaries against the **personalised** visa checklist and returns a structured evaluation report.
+6. **Audit Timeline** — Provides a stage-by-stage event log of the entire pipeline, showing durations, cache hits, and JSON output summaries for every step.
+7. **Application History** — A centralised dashboard to track all past reviews, view scores/verdicts, and re-run reviews on existing document data.
 
 ### Supported Visa Types (MVP)
 | ID | Country | Visa Type |
@@ -28,11 +29,11 @@ An AI-powered visa document review platform that reads applicant documents, vali
 | Layer | Technology | Description |
 |---|---|---|
 | Framework | Next.js 16 (App Router, TypeScript) | Core frontend and backend dispatcher |
-| Styling | Tailwind CSS + shadcn/ui | Component UI architecture |
-| Database | SQLite via `better-sqlite3` + Drizzle ORM | Local relational storage with WAL mode enabled |
+| Styling | Tailwind CSS | Modern responsive UI architecture |
+| Database | SQLite via `better-sqlite3` + Drizzle ORM | Local storage with WAL mode and 6 relational tables |
 | **Local OCR Sidecar** | Python FastAPI + PaddleOCR / Ollama | **100% offline text extraction (local default)** |
 | Cloud OCR Fallbacks | Gemini 2.0 Flash / Mistral Small 3.1 | Switchable via `OCR_MODE` environment override |
-| AI Analysis | `deepseek/deepseek-r1:free` via OpenRouter | Free reasoning model for intelligent gap assessment |
+| AI Analysis | Claude 3.5 / DeepSeek R1 via OpenRouter | Free reasoning models for checklist generation and gap assessment |
 | PDF Generation | `@react-pdf/renderer` | Client/server PDF document builder |
 
 ---
@@ -63,13 +64,12 @@ Initialize the Python virtual environment and install dedicated computer vision 
 python3.10 -m venv ocr-service/venv
 source ocr-service/venv/bin/activate  # Windows: ocr-service\venv\Scripts\activate
 
-# Install dependencies (FastAPI, Uvicorn, PaddleOCR, pdf2image, etc.)
+# Install dependencies
 pip install -r ocr-service/requirements.txt
 
 # Start the sidecar service on port 8000
 python ocr-service/main.py
 ```
-> **Note:** The local OCR service listens on `http://localhost:8000`. The first run will automatically download standard lightweight OCR models (~100MB) directly into local cache.
 
 ### 3. Install Node.js Dependencies
 
@@ -78,35 +78,13 @@ Open a second terminal tab/window in the project root:
 ```bash
 npm install
 ```
-> *Installs native bindings (`better-sqlite3`, `canvas`). On macOS, ensure Xcode Command Line Tools are active (`xcode-select --install`).*
 
 ### 4. Configure Environment Variables
 
-Copy the template file:
+Copy the template file and add your OpenRouter key:
 
 ```bash
 cp .env.example .env.local
-```
-
-Open `.env.local` and configure your API keys and preferred OCR mode:
-
-```env
-# Required — OpenRouter key for Gap Analysis
-OPENROUTER_API_KEY=sk-or-your-key-here
-
-# OCR Mode Configuration — 'local' (sidecar) | 'openrouter' (cloud default) | 'mistral'
-OCR_MODE=local
-
-# Local sidecar API endpoint (used when OCR_MODE=local)
-LOCAL_OCR_URL=http://localhost:8000
-# LOCAL_OCR_ENGINE=paddle   # 'paddle' (default) | 'tesseract' | 'ollama'
-
-# Optional Model Overrides
-MODEL_OCR=google/gemini-2.0-flash-exp:free
-MODEL_ANALYSIS=deepseek/deepseek-r1:free
-
-NEXT_PUBLIC_URL=http://localhost:3000
-DEMO_MODE=true
 ```
 
 ### 5. Initialize the Database
@@ -118,7 +96,7 @@ mkdir -p data
 npx drizzle-kit generate
 npx drizzle-kit migrate
 ```
-> *Creates `./data/visa-mvp.db` containing reviews, cache entries, and extraction payloads.*
+> *Creates `./data/visa-mvp.db` containing 6 tables: reviews, documents, review_results, document_extractions, checklist_profiles, and application_events.*
 
 ### 6. Start the Next.js Development Server
 
@@ -126,19 +104,20 @@ npx drizzle-kit migrate
 npm run dev
 ```
 
-The review interface is now fully accessible at **[http://localhost:3000](http://localhost:3000)**.
+The review interface is now accessible at **[http://localhost:3000](http://localhost:3000)**.
 
 ---
 
 ## Using the Demo
 
 1. **Launch** [http://localhost:3000](http://localhost:3000) and click **"Try Demo"**.
-2. **Step 1 — Select visa type:** Choose UK or Schengen, input a test nationality.
-3. **Step 2 — Upload documents:** Drag and drop sample document files. Assign specific type labels (e.g., Passport, Bank Statement). Click **"Review OCR Content →"**.
-4. **Step 3 — Review & Correct OCR:** Interactively tab through parsed files, inspect extracted JSON variables, correct spelling/numerical anomalies live, and verify dates against layout streams. Click **"Confirm Corrections & Run Gap Analysis →"**.
-5. **Step 4 — Live Processing:** Watch real-time visual progress ticks. Notice the dedicated local-privacy messaging badge confirming **"OCR running locally — document stays on this machine"**.
-6. **Step 5 — Review Results:** Assess the visual probability score gauge, sub-component breakdowns, and critical gap recommendations accompanied by precise **Observed Gap** summaries. Click **"How is your data protected?"** to visually inspect exact local extractions versus scrubbed cloud payloads.
-7. **Re-upload Verification:** Re-submit identical files to instantly observe perfect zero-latency SQLite MD5 cache hits.
+2. **Step 1 — Select visa:** Choose UK or Schengen and input nationality.
+3. **Step 2 — Questionnaire:** Answer 6 questions to build your personalised profile.
+4. **Step 3 — Checklist:** View the AI-generated document list with priority and score impact.
+5. **Step 4 — Upload:** Drag and drop your files.
+6. **Step 5 — Processing:** Watch the stage-by-stage progress with local privacy assurance.
+7. **Step 6 — Results:** Review the probability score, gap analysis, and strengths.
+8. **Audit & History:** Click **"History"** in the top nav to see past applications, or **"Timeline"** on any past review to see the full audit trail.
 
 ---
 
@@ -146,40 +125,26 @@ The review interface is now fully accessible at **[http://localhost:3000](http:/
 
 ```
 visa-application-validator/
-├── app/                            # Next.js App Router Page Layouts
-├── components/                     # Interactive UI Components (ScoreGauge, ProcessingSteps)
+├── app/
+│   ├── demo/                       # Visa selection
+│   ├── questionnaire/              # Profile builder [NEW v1.2]
+│   ├── upload/                     # Multi-file uploader
+│   ├── processing/                 # Live status wizard
+│   ├── results/                    # Scored dashboard
+│   ├── history/                    # Global history view [NEW v1.2]
+│   └── applications/[id]/timeline/ # Stage-by-stage audit trail [NEW v1.2]
+├── components/                     # Reusable UI (ProcessingSteps, ScoreGauge)
 ├── lib/
 │   ├── ai/
-│   │   ├── ocr.ts                  # Multi-mode OCR Dispatcher (local | openrouter | mistral)
+│   │   ├── checklistBuilder.ts     # Personalised checklist logic [NEW v1.2]
+│   │   ├── ocr.ts                  # Multi-mode OCR Dispatcher
 │   │   ├── scrubPII.ts             # Data Scrubbing safety layer
 │   │   └── analysis.ts             # OpenRouter Gap Analysis adapter
 │   ├── checklists/                 # Visa Rules JSON Schemas
-│   └── db/                         # Drizzle ORM Config and SQLite drivers
+│   └── db/                         # Drizzle ORM Config and Schema (6 tables)
 ├── ocr-service/                    # Local Python Computer Vision Sidecar
-│   ├── main.py                     # FastAPI server engine supporting PaddleOCR/Ollama
-│   ├── requirements.txt            # Locked pip packages
-│   └── ocr_cache.db                # Auto-managed standalone local SQLite cache
-├── data/                           # Application SQLite DB storage
-├── index.html                      # Customer Proposal Static Page
-└── .env.local                      # Runtime Configuration secrets
+└── data/                           # Application SQLite DB storage
 ```
-
----
-
-## Troubleshooting
-
-* **`Local OCR service is not running` error during review processing:**
-  Ensure the Python sidecar is fully activated in a separate terminal:
-  ```bash
-  cd ocr-service && source venv/bin/activate && python main.py
-  ```
-* **Address already in use (`[Errno 48]`) on port 8000:**
-  Terminate lingering local server instances listening on port 8000:
-  ```bash
-  lsof -ti :8000 | xargs kill -9
-  ```
-* **Missing packages during pip install:**
-  Ensure the virtual environment is successfully activated before executing pip installations.
 
 ---
 

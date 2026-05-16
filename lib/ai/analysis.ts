@@ -2,24 +2,36 @@
 import { openrouter, ANALYSIS_MODEL } from './openrouter';
 import { getChecklist } from '@/lib/checklists';
 import { scrubPII } from './scrubPII';
-import type { RawExtraction, ScrubbedExtraction, AnalysisResult } from './types';
+import type { RawExtraction, ScrubbedExtraction, AnalysisResult, PersonalisedChecklist } from './types';
 
 export async function analyseApplication(
   checklistId: string,
   rawExtractions: RawExtraction[],
   preScrubbed?: ScrubbedExtraction[],
+  personalisedChecklist?: PersonalisedChecklist,
 ): Promise<AnalysisResult> {
 
-  const checklist = getChecklist(checklistId);
-  const scrubbed  = preScrubbed ?? scrubPII(rawExtractions);
+  const scrubbed = preScrubbed ?? scrubPII(rawExtractions);
+
+  // Use personalised checklist if provided, otherwise fall back to base checklist
+  const checklistContent = personalisedChecklist
+    ? {
+        type: 'personalised',
+        items: personalisedChecklist.checklist_items,
+        profile_flags:        personalisedChecklist.profile_flags,
+        high_risk_factors:    personalisedChecklist.high_risk_factors,
+        strengths:            personalisedChecklist.strengths,
+        special_instructions: personalisedChecklist.special_instructions,
+      }
+    : { type: 'standard', ...getChecklist(checklistId) };
 
   const response = await openrouter.chat.completions.create({
-    model:           ANALYSIS_MODEL,
+    model:    ANALYSIS_MODEL,
     messages: [
       {
         role:    'system',
         content: `You are an expert visa officer with 20 years of experience.
-Analyse the provided document summaries against the country checklist.
+Analyse the provided document summaries against the ${checklistContent.type === 'personalised' ? 'PERSONALISED' : 'country'} checklist.
 Return ONLY valid JSON with exactly this structure, no extra text or markdown:
 {
   "gap_analysis": [
@@ -48,13 +60,12 @@ Return ONLY valid JSON with exactly this structure, no extra text or markdown:
 CRITICAL RULES ON EXPIRATION:
 Examine the 'document_validity' object closely. If 'is_expired' is false or if 'days_until_expiry' is a positive number (meaning the date is in the future), the document is completely VALID and ACTIVE. Do NOT mark the status as "expired" under any circumstances if the expiration date is in the future.
 
-COUNTRY CHECKLIST:
-${JSON.stringify(checklist, null, 2)}`,
+${checklistContent.type === 'personalised' ? 'PERSONALISED' : 'COUNTRY'} CHECKLIST:
+${JSON.stringify(checklistContent, null, 2)}`,
       },
       {
         role:    'user',
-        content: `Analyse these document summaries (PII already removed — do not ask for raw data):
-${JSON.stringify(scrubbed, null, 2)}`,
+        content: `Analyse these document summaries (PII already removed — do not ask for raw data):\n${JSON.stringify(scrubbed, null, 2)}`,
       },
     ],
   });
