@@ -2,15 +2,16 @@
 import { openrouter, ANALYSIS_MODEL } from './openrouter';
 import { getChecklist } from '@/lib/checklists';
 import { scrubPII } from './scrubPII';
-import type { RawExtraction, AnalysisResult } from './types';
+import type { RawExtraction, ScrubbedExtraction, AnalysisResult } from './types';
 
 export async function analyseApplication(
   checklistId: string,
   rawExtractions: RawExtraction[],
+  preScrubbed?: ScrubbedExtraction[],
 ): Promise<AnalysisResult> {
 
   const checklist = getChecklist(checklistId);
-  const scrubbed  = scrubPII(rawExtractions); // ← PII scrubbed here, always
+  const scrubbed  = preScrubbed ?? scrubPII(rawExtractions);
 
   const response = await openrouter.chat.completions.create({
     model:           ANALYSIS_MODEL,

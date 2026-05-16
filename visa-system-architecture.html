@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visa AI Review System — Architecture v1.2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--surface3:#0d1322;
+  --border:#1e2d45;--border2:#2a3a55;
+  --green:#00d4aa;--blue:#4f8ef7;--orange:#f7924f;--purple:#c084fc;
+  --red:#f87171;--yellow:#fbbf24;--teal:#2dd4bf;--lime:#a3e635;
+  --text:#e2e8f0;--muted:#64748b;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding-top:64px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+/* ── NAV ──────────────────────────────────────────────────────── */
+nav{position:fixed;top:0;left:0;right:0;height:64px;z-index:900;background:rgba(10,14,26,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.nav-brand{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.nav-logo{width:30px;height:30px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:14px;font-weight:900;color:var(--bg)}
+.nav-title{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--text)}
+.nav-ver{background:rgba(0,212,170,.1);border:1px solid rgba(0,212,170,.22);border-radius:100px;padding:2px 8px;font-size:8px;color:var(--green);letter-spacing:.1em}
+.nav-links{display:flex;gap:20px;list-style:none;margin:0 auto}
+.nav-links a{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s;white-space:nowrap}
+.nav-links a:hover{color:var(--green)}
+.nav-cta{background:var(--green);color:var(--bg)!important;padding:6px 13px;border-radius:5px;font-size:9px;font-weight:700;text-decoration:none;letter-spacing:.06em;text-transform:uppercase;transition:opacity .2s;white-space:nowrap}
+.nav-cta:hover{opacity:.85}
+
+/* Hamburger */
+.nav-hamburger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:5px;width:38px;height:38px;background:transparent;border:1px solid var(--border2);border-radius:6px;cursor:pointer;padding:0;transition:border-color .2s;z-index:1001;flex-shrink:0}
+.nav-hamburger:hover{border-color:var(--green)}
+.nav-hamburger span{display:block;width:16px;height:2px;background:var(--text);border-radius:2px;transition:transform .3s,opacity .3s,width .3s;transform-origin:center}
+.nav-hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-hamburger.open span:nth-child(2){opacity:0;width:0}
+.nav-hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
+/* Mobile drawer */
+.mobile-drawer{display:none;position:fixed;top:64px;left:0;right:0;bottom:0;background:rgba(10,14,26,.98);backdrop-filter:blur(20px);z-index:850;overflow-y:auto;padding:20px 20px 60px;transform:translateY(-8px);opacity:0;pointer-events:none;transition:transform .3s,opacity .3s}
+.mobile-drawer.open{transform:translateY(0);opacity:1;pointer-events:all}
+.mobile-drawer ul{list-style:none;display:flex;flex-direction:column;gap:3px;margin-bottom:20px}
+.mobile-drawer li a{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-radius:8px;font-size:12px;color:var(--text);text-decoration:none;letter-spacing:.03em;border:1px solid transparent;transition:background .2s,border-color .2s}
+.mobile-drawer li a:hover{background:var(--surface2);border-color:var(--border)}
+.mobile-drawer li a::after{content:'→';color:var(--muted);font-size:10px}
+.drawer-new{color:var(--yellow)!important}
+.drawer-new::before{content:'★ '}
+.drawer-cta-a{background:rgba(0,212,170,.08)!important;border-color:rgba(0,212,170,.2)!important;color:var(--green)!important}
+.drawer-cta-a::after{color:var(--green)!important}
+.drawer-sep{border:none;border-top:1px solid var(--border);margin:14px 0}
+.drawer-legend{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.dl-item{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:9px 11px;display:flex;align-items:center;gap:7px;font-size:9px;color:var(--muted)}
+.dl-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* ── WRAPPER ──────────────────────────────────────────────────── */
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:36px 20px 60px}
+
+/* ── PAGE HEADER ──────────────────────────────────────────────── */
+.ph{text-align:center;margin-bottom:44px}
+.ph-eye{font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--green);margin-bottom:10px}
+.ph-title{font-family:'Fraunces',serif;font-size:clamp(24px,5vw,44px);font-weight:900;line-height:1.1;color:#fff;margin-bottom:8px}
+.ph-title span{color:var(--green)}
+.ph-sub{font-size:10px;color:var(--muted);letter-spacing:.05em;line-height:1.6;max-width:700px;margin:0 auto 14px}
+.ver-strip{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+.vb{font-size:8px;padding:2px 9px;border-radius:100px;letter-spacing:.07em;font-weight:600;border:1px solid}
+.vb-g{background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.2);color:var(--green)}
+.vb-y{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.28);color:var(--yellow)}
+
+/* ── LEGEND ───────────────────────────────────────────────────── */
+.legend{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:40px}
+.li{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.ld{width:9px;height:9px;border-radius:2px}
+
+/* ── SECTION LABEL ────────────────────────────────────────────── */
+.sl{font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;padding-left:3px;display:flex;align-items:center;gap:8px}
+.new-tag{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);border-radius:100px;padding:1px 7px;font-size:8px;color:var(--yellow);letter-spacing:.06em;font-weight:700}
+
+/* ── LAYERS ───────────────────────────────────────────────────── */
+.layer{margin-bottom:9px;border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .3s}
+.layer:hover{border-color:rgba(0,212,170,.15)}
+.layer.new-layer{border-color:rgba(251,191,36,.18)}
+.layer.new-layer:hover{border-color:rgba(251,191,36,.35)}
+.lh{padding:9px 17px;font-size:9px;letter-spacing:.22em;text-transform:uppercase;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.lh .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.lb{padding:16px;background:var(--surface)}
+
+/* ── NODE GRIDS ───────────────────────────────────────────────── */
+.ng{display:grid;gap:9px}
+.ng2{grid-template-columns:repeat(2,1fr)}
+.ng3{grid-template-columns:repeat(3,1fr)}
+.ng4{grid-template-columns:repeat(4,1fr)}
+.ng5{grid-template-columns:repeat(5,1fr)}
+
+/* ── NODE CARDS ───────────────────────────────────────────────── */
+.node{border-radius:8px;padding:12px 13px;border:1px solid;position:relative;transition:transform .2s,box-shadow .2s}
+.node:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.n-green{background:rgba(0,212,170,.05);border-color:rgba(0,212,170,.22)}
+.n-blue{background:rgba(79,142,247,.05);border-color:rgba(79,142,247,.22)}
+.n-orange{background:rgba(247,146,79,.05);border-color:rgba(247,146,79,.22)}
+.n-purple{background:rgba(192,132,252,.05);border-color:rgba(192,132,252,.22)}
+.n-red{background:rgba(248,113,113,.05);border-color:rgba(248,113,113,.22)}
+.n-gray{background:rgba(100,116,139,.07);border-color:rgba(100,116,139,.18)}
+.n-yellow{background:rgba(251,191,36,.05);border-color:rgba(251,191,36,.22)}
+.n-teal{background:rgba(45,212,191,.05);border-color:rgba(45,212,191,.22)}
+.ni{font-size:18px;margin-bottom:6px;display:block}
+.nt{font-size:11px;font-weight:500;color:#fff;margin-bottom:3px}
+.nd{font-size:9px;color:var(--muted);line-height:1.5}
+.nb{display:inline-block;font-size:8px;padding:2px 6px;border-radius:3px;margin-top:5px;letter-spacing:.06em}
+.bg{background:rgba(0,212,170,.13);color:var(--green)}
+.bb{background:rgba(79,142,247,.13);color:var(--blue)}
+.bo{background:rgba(247,146,79,.13);color:var(--orange)}
+.bp{background:rgba(192,132,252,.13);color:var(--purple)}
+.br{background:rgba(248,113,113,.13);color:var(--red)}
+.by{background:rgba(251,191,36,.13);color:var(--yellow);font-weight:700}
+
+/* NEW glow */
+.is-new{border-color:rgba(251,191,36,.35)!important;box-shadow:0 0 0 1px rgba(251,191,36,.07)}
+.is-new::after{content:'NEW';position:absolute;top:5px;right:5px;font-size:7px;background:rgba(251,191,36,.13);color:var(--yellow);border:1px solid rgba(251,191,36,.28);border-radius:3px;padding:1px 5px;letter-spacing:.07em;font-weight:700}
+
+/* ── FLOW ARROW ───────────────────────────────────────────────── */
+.fa{text-align:center;padding:5px 0;color:var(--muted);font-size:14px;position:relative}
+.fa::before,.fa::after{content:'';position:absolute;top:50%;width:calc(50% - 44px);height:1px;background:linear-gradient(90deg,transparent,var(--border))}
+.fa::before{left:0}
+.fa::after{right:0;background:linear-gradient(270deg,transparent,var(--border))}
+
+/* ── DECISION ─────────────────────────────────────────────────── */
+.dec{background:var(--surface2);border:1px dashed rgba(0,212,170,.28);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px;margin:7px 0;font-size:10px;flex-wrap:wrap}
+.dec-d{width:28px;height:28px;background:rgba(0,212,170,.08);border:1px solid var(--green);transform:rotate(45deg);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.dec-d span{transform:rotate(-45deg);font-size:12px;display:block}
+.dec-t{flex:1;color:var(--text);min-width:160px}
+.dec-t strong{color:var(--green)}
+.dec-b{display:flex;gap:7px;flex-wrap:wrap}
+.br-y{font-size:8px;padding:3px 8px;border-radius:4px;background:rgba(0,212,170,.1);color:var(--green);border:1px solid rgba(0,212,170,.28)}
+.br-n{font-size:8px;padding:3px 8px;border-radius:4px;background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.28)}
+
+/* ── PIPELINE ─────────────────────────────────────────────────── */
+.pipe{display:flex;align-items:stretch;gap:0;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.ps{flex:1;padding:11px 9px;background:var(--surface2);text-align:center;position:relative;border-right:1px solid var(--border)}
+.ps:last-child{border-right:none}
+.ps::after{content:'→';position:absolute;right:-7px;top:50%;transform:translateY(-50%);color:var(--green);font-size:10px;z-index:2;background:var(--surface2);padding:2px}
+.ps:last-child::after{display:none}
+.ps-n{font-size:7px;color:var(--green);letter-spacing:.13em;margin-bottom:2px}
+.ps-name{font-size:9px;color:#fff;margin-bottom:2px}
+.ps-m{font-size:7px;color:var(--muted)}
+.ps.new-ps{background:rgba(251,191,36,.05)}
+.ps.new-ps .ps-n{color:var(--yellow)}
+
+/* ── COST STRIP ───────────────────────────────────────────────── */
+.cs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.cc{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:13px;text-align:center}
+.cc-l{font-size:8px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px}
+.cc-v{font-family:'Fraunces',serif;font-size:22px;font-weight:600;color:var(--green);line-height:1}
+.cc-s{font-size:8px;color:var(--muted);margin-top:3px}
+.cc-save{color:#4ade80!important}
+
+/* ── PRIVACY / NEW BANNERS ────────────────────────────────────── */
+.priv-banner{background:rgba(192,132,252,.05);border:1px solid rgba(192,132,252,.18);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:9px;font-size:9px;color:var(--purple);margin-bottom:9px}
+.new-banner{background:rgba(251,191,36,.04);border:1px solid rgba(251,191,36,.22);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:9px;font-size:9px;color:var(--yellow);margin-bottom:9px}
+
+/* ── OCR ENGINE GRID ──────────────────────────────────────────── */
+.ocr-engines{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:9px}
+.oe{font-size:8px;color:var(--muted);background:var(--surface2);padding:8px;border-radius:5px;border:1px solid}
+.oe-title{font-size:9px;margin-bottom:3px;font-weight:500}
+
+/* ── QUESTIONNAIRE FLOW ───────────────────────────────────────── */
+.qf{background:var(--surface2);border:1px solid rgba(251,191,36,.18);border-radius:8px;padding:12px 14px;margin-top:9px}
+.qf-title{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px;font-weight:600}
+.qsteps{display:flex;gap:0;border-radius:6px;overflow:hidden;border:1px solid var(--border)}
+.qs{flex:1;padding:10px 8px;background:var(--surface3);text-align:center;border-right:1px solid var(--border);font-size:8px;position:relative}
+.qs:last-child{border-right:none}
+.qs::after{content:'→';position:absolute;right:-7px;top:50%;transform:translateY(-50%);color:var(--yellow);font-size:9px;z-index:2;background:var(--surface3);padding:1px}
+.qs:last-child::after{display:none}
+.qs-n{color:var(--yellow);font-size:7px;letter-spacing:.1em;margin-bottom:2px}
+.qs-name{color:#fff;font-size:9px;margin-bottom:2px}
+.qs-sub{color:var(--muted);font-size:7px}
+
+/* ── TIMELINE MINI ────────────────────────────────────────────── */
+.tm{display:flex;flex-direction:column;gap:0;margin-top:10px}
+.ts{display:flex;gap:11px;padding:7px 0;position:relative}
+.ts:not(:last-child)::before{content:'';position:absolute;left:10px;top:23px;bottom:-7px;width:1px;background:var(--border)}
+.tn{width:20px;height:20px;border-radius:50%;border:1px solid;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;background:var(--surface2);z-index:1}
+.tn.done{border-color:var(--green);color:var(--green)}
+.tn.new-step{border-color:var(--yellow);color:var(--yellow)}
+.tc{flex:1;padding-top:2px}
+.tc-name{font-size:10px;color:#fff;margin-bottom:1px}
+.tc-detail{font-size:8px;color:var(--muted);line-height:1.4}
+
+/* ── HISTORY TABLE ────────────────────────────────────────────── */
+.ht{background:var(--surface2);border:1px solid rgba(251,191,36,.18);border-radius:8px;overflow:hidden;margin-top:9px}
+.hth{display:grid;grid-template-columns:2fr 1.4fr 90px 70px 80px;padding:7px 13px;border-bottom:1px solid var(--border);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:6px}
+.htr{display:grid;grid-template-columns:2fr 1.4fr 90px 70px 80px;padding:9px 13px;border-bottom:1px solid rgba(255,255,255,.03);font-size:9px;gap:6px;align-items:center;transition:background .2s}
+.htr:hover{background:rgba(255,255,255,.025)}
+.htr:last-child{border-bottom:none}
+.sp{display:inline-flex;align-items:center;padding:2px 7px;border-radius:100px;font-size:8px;font-weight:600}
+.sp-g{background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.22)}
+.sp-a{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.22)}
+.sp-r{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.22)}
+.ha{font-size:8px;color:var(--blue);background:rgba(79,142,247,.08);padding:2px 7px;border-radius:3px;border:1px solid rgba(79,142,247,.18);text-align:center;cursor:pointer}
+
+/* ── CHECKLIST SAMPLE ─────────────────────────────────────────── */
+.cl-sample{background:var(--surface2);border:1px solid rgba(251,191,36,.18);border-radius:8px;padding:12px 14px;margin-top:9px}
+.cl-title{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--yellow);margin-bottom:10px;font-weight:600}
+.cl-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:9px}
+.cl-item:last-child{border-bottom:none}
+.cl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:2px}
+.cl-req{background:var(--red)}
+.cl-rec{background:var(--yellow)}
+.cl-opt{background:var(--muted)}
+.cl-body{flex:1}
+.cl-name{color:#fff;margin-bottom:2px}
+.cl-reason{font-size:8px;color:var(--yellow)}
+.cl-pts{font-size:8px;color:#4ade80;font-weight:600;white-space:nowrap}
+
+/* ── DB SCHEMA MINI ───────────────────────────────────────────── */
+.schema-grid{display:grid;gap:7px;margin-top:9px}
+
+/* ── PAGE FOOTER ──────────────────────────────────────────────── */
+.pf{text-align:center;margin-top:36px;font-size:9px;color:var(--muted);letter-spacing:.09em;line-height:2}
+
+/* ── RESPONSIVE ───────────────────────────────────────────────── */
+@media(max-width:1000px) and (min-width:601px){
+  nav{padding:0 18px}
+  .nav-links{display:none}
+  .nav-hamburger{display:flex}
+  .mobile-drawer{display:block}
+  .ng4,.ng5{grid-template-columns:repeat(2,1fr)}
+  .ng3{grid-template-columns:repeat(2,1fr)}
+  .cs{grid-template-columns:repeat(2,1fr)}
+  .hth,.htr{grid-template-columns:2fr 1fr 80px}
+  .hth>*:nth-child(n+4),.htr>*:nth-child(n+4){display:none}
+  .pipe{flex-wrap:wrap}
+  .ps{min-width:calc(33% - 2px);border-bottom:1px solid var(--border)}
+  .qsteps{flex-wrap:wrap}
+  .qs{min-width:calc(33% - 2px);border-bottom:1px solid var(--border)}
+  .ocr-engines{grid-template-columns:1fr 1fr}
+  .drawer-legend{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:600px){
+  nav{padding:0 14px;gap:8px}
+  .nav-links{display:none}
+  .nav-title{font-size:10px}
+  .nav-hamburger{display:flex}
+  .mobile-drawer{display:block}
+  .wrap{padding:24px 14px 48px}
+  .ph-title{font-size:clamp(20px,7vw,30px)}
+  .ph-sub{font-size:9px}
+  .legend{gap:9px;justify-content:flex-start}
+  .li{font-size:8px}
+  .ng2,.ng3,.ng4,.ng5{grid-template-columns:1fr}
+  .cs{grid-template-columns:1fr}
+  .pipe,.qsteps{flex-direction:column}
+  .ps,.qs{border-right:none;border-bottom:1px solid var(--border)}
+  .ps::after,.qs::after{content:'↓';right:auto;top:auto;bottom:-8px;left:50%;transform:translateX(-50%)}
+  .ps:last-child::after,.qs:last-child::after{display:none}
+  .dec{flex-direction:column;align-items:flex-start}
+  .dec-b{width:100%}
+  .hth,.htr{grid-template-columns:1fr 70px}
+  .hth>*:nth-child(n+3),.htr>*:nth-child(n+3){display:none}
+  .ocr-engines{grid-template-columns:1fr}
+  .drawer-legend{grid-template-columns:1fr}
+  .ver-strip{justify-content:flex-start}
+  .lb{padding:13px}
+  .node{padding:10px 11px}
+  .nd{font-size:9px}
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ──────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">V</div>
+    <div class="nav-title">Visa AI Architecture</div>
+    <span class="nav-ver">v1.2</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#l1">Entry</a></li>
+    <li><a href="#l2">Security</a></li>
+    <li><a href="#l3">OCR</a></li>
+    <li><a href="#l4">AI Pipeline</a></li>
+    <li><a href="#l5">Output</a></li>
+    <li><a href="#l6">History ★</a></li>
+    <li><a href="#l7">Checklist ★</a></li>
+    <li><a href="#costs">Costs</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <a href="visa-ai-proposal.html" class="nav-cta">Full Proposal →</a>
+    <button class="nav-hamburger" id="hamburger" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- ── MOBILE DRAWER ────────────────────────────────────────────── -->
+<div class="mobile-drawer" id="mobileDrawer">
+  <ul>
+    <li><a href="#l1" class="dl">01 — Customer Entry</a></li>
+    <li><a href="#l2" class="dl">02 — Security & Privacy</a></li>
+    <li><a href="#l3" class="dl">03 — Local OCR & Cache</a></li>
+    <li><a href="#l4" class="dl">04 — AI Analysis Pipeline</a></li>
+    <li><a href="#l5" class="dl">05 — Output & Storage</a></li>
+    <li><a href="#l6" class="dl drawer-new">06 — Application History</a></li>
+    <li><a href="#l7" class="dl drawer-new">07 — Personalised Checklist</a></li>
+    <li><a href="#costs" class="dl">08 — Cost Estimates</a></li>
+    <li><a href="visa-ai-proposal.html" class="dl drawer-cta-a">View Full Proposal →</a></li>
+  </ul>
+  <hr class="drawer-sep">
+  <div class="drawer-legend">
+    <div class="dl-item"><div class="dl-dot" style="background:var(--green)"></div>Customer Layer</div>
+    <div class="dl-item"><div class="dl-dot" style="background:var(--blue)"></div>Security</div>
+    <div class="dl-item"><div class="dl-dot" style="background:var(--orange)"></div>OCR & Cache</div>
+    <div class="dl-item"><div class="dl-dot" style="background:var(--purple)"></div>AI Analysis</div>
+    <div class="dl-item"><div class="dl-dot" style="background:var(--red)"></div>Output</div>
+    <div class="dl-item"><div class="dl-dot" style="background:var(--yellow)"></div>New in v1.2</div>
+  </div>
+</div>
+
+<!-- ── MAIN CONTENT ─────────────────────────────────────────────── -->
+<div class="wrap">
+
+  <header class="ph">
+    <div class="ph-eye">System Architecture — v1.2</div>
+    <h1 class="ph-title">Visa AI Review <span>System</span></h1>
+    <div class="ph-sub">Local OCR (PaddleOCR) · PII Scrubber · Claude Sonnet 4.6 · Personalised Checklist Builder · Application History & Timeline · Google Drive / OneDrive</div>
+    <div class="ver-strip">
+      <span class="vb vb-g">Local OCR — ₹0/doc</span>
+      <span class="vb vb-g">PII Scrubber</span>
+      <span class="vb vb-g">Claude Gap Analysis</span>
+      <span class="vb vb-g">Prompt Caching 90%</span>
+      <span class="vb vb-y">★ Application History</span>
+      <span class="vb vb-y">★ Personalised Checklist</span>
+    </div>
+  </header>
+
+  <div class="legend">
+    <div class="li"><div class="ld" style="background:var(--green)"></div>Customer</div>
+    <div class="li"><div class="ld" style="background:var(--blue)"></div>Security</div>
+    <div class="li"><div class="ld" style="background:var(--orange)"></div>OCR & Cache</div>
+    <div class="li"><div class="ld" style="background:var(--purple)"></div>AI Analysis</div>
+    <div class="li"><div class="ld" style="background:var(--red)"></div>Output</div>
+    <div class="li"><div class="ld" style="background:var(--yellow)"></div>New in v1.2</div>
+  </div>
+
+  <!-- L1: Customer -->
+  <div class="sl" id="l1">01 — Customer Entry Points</div>
+  <div class="layer">
+    <div class="lh" style="background:rgba(0,212,170,.04)"><div class="dot" style="background:var(--green)"></div>Customer Upload Layer</div>
+    <div class="lb">
+      <div class="ng ng3">
+        <div class="node n-green"><span class="ni">🌐</span><div class="nt">Web Portal</div><div class="nd">Next.js 14 App Router. Applicants complete questionnaire, upload docs, track status, browse history. Mobile responsive.</div><span class="nb bg">HTTPS / TLS 1.3</span></div>
+        <div class="node n-green"><span class="ni">📱</span><div class="nt">Mobile Browser</div><div class="nd">Full responsive UI. Camera capture of passport & docs. Touch-optimised questionnaire with progress bar.</div><span class="nb bg">Responsive</span></div>
+        <div class="node n-green"><span class="ni">🔌</span><div class="nt">Agent REST API</div><div class="nd">Programmatic submission of applications and retrieval of history and reports. JWT auth.</div><span class="nb bg">API Key Auth</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L2: Security -->
+  <div class="sl" id="l2">02 — Security & Privacy Gate</div>
+  <div class="layer">
+    <div class="lh" style="background:rgba(79,142,247,.04)"><div class="dot" style="background:var(--blue)"></div>Security & PII Protection</div>
+    <div class="lb">
+      <div class="priv-banner">🔒 AES-256 at rest · PII stripped before any LLM call · Full immutable audit trail · GDPR compliant</div>
+      <div class="ng ng4">
+        <div class="node n-blue"><span class="ni">🔐</span><div class="nt">Auth & Access</div><div class="nd">NextAuth.js v5. JWT + Google/Microsoft OAuth. 4 roles. Applicants see only their own data.</div><span class="nb bb">Role-based</span></div>
+        <div class="node n-blue"><span class="ni">🔒</span><div class="nt">Encryption</div><div class="nd">AES-256 at rest. TLS 1.3 in transit. Vercel Environment Variables for all secrets.</div><span class="nb bb">AES-256</span></div>
+        <div class="node n-blue"><span class="ni">🧹</span><div class="nt">PII Scrubber</div><div class="nd">Runs locally. Passport numbers → boolean. Balances → bands. Names/addresses removed. Before every Claude call.</div><span class="nb bb">GDPR Safe</span></div>
+        <div class="node n-blue"><span class="ni">📋</span><div class="nt">Audit Log</div><div class="nd">Every action immutably logged — who, what, when, IP address. 2-year retention. Powers timeline view.</div><span class="nb bb">Immutable</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L3: OCR Cache -->
+  <div class="sl" id="l3">03 — Local OCR & Cache Layer</div>
+  <div class="layer">
+    <div class="lh" style="background:rgba(247,146,79,.04)"><div class="dot" style="background:var(--orange)"></div>MD5 Fingerprinting · Dual Cache · Local Python OCR Service</div>
+    <div class="lb">
+      <div class="dec">
+        <div class="dec-d"><span>?</span></div>
+        <div class="dec-t">Generate <strong>MD5 hash</strong> of document → Check Neon PostgreSQL cache + local SQLite</div>
+        <div class="dec-b">
+          <div class="br-y">✓ Hash Found → Instant Return (₹0)</div>
+          <div class="br-n">✗ Not Found → Local OCR</div>
+        </div>
+      </div>
+      <div class="ng ng2" style="margin-top:9px">
+        <div class="node n-orange"><span class="ni">⚡</span><div class="nt">Cache Hit — Zero Cost</div><div class="nd">Stored extraction returned instantly. Covers resubmissions, partial updates, re-runs. 90-day expiry. Both Neon + SQLite checked.</div><span class="nb bo">₹0 per hit</span></div>
+        <div class="node n-orange"><span class="ni">🔒</span><div class="nt">Cache Miss — Local OCR</div><div class="nd">Python FastAPI service runs PaddleOCR locally. Document never sent to any cloud API. Result cached for 90 days.</div><span class="nb bo">₹0 · 100% Local</span></div>
+      </div>
+      <div class="ocr-engines">
+        <div class="oe" style="border-color:rgba(0,212,170,.18)"><div class="oe-title" style="color:var(--green)">PaddleOCR (default)</div>88–94% accuracy · 2GB RAM · Multilingual passports · No GPU required</div>
+        <div class="oe" style="border-color:rgba(192,132,252,.18)"><div class="oe-title" style="color:var(--purple)">Ollama + minicpm-v</div>90–96% accuracy · 8GB RAM · Structured JSON output · Near-API quality</div>
+        <div class="oe" style="border-color:rgba(100,116,139,.2)"><div class="oe-title" style="color:var(--muted)">Tesseract (fallback)</div>70–85% accuracy · 500MB RAM · Simple docs · No model download</div>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:8px;background:var(--surface2);padding:7px 10px;border-radius:5px;border:1px solid var(--border)">
+        Switch OCR mode: <span style="color:var(--green)">OCR_MODE=local</span> (default, documents stay on machine) or <span style="color:var(--orange)">OCR_MODE=mistral</span> (cloud API fallback) — one env var, zero code changes.
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L4: AI Pipeline -->
+  <div class="sl" id="l4">04 — AI Analysis Pipeline</div>
+  <div class="layer">
+    <div class="lh" style="background:rgba(192,132,252,.04)"><div class="dot" style="background:var(--purple)"></div>Personalised Checklist + PII Scrub + Claude Gap Analysis</div>
+    <div class="lb">
+      <div class="pipe" style="margin-bottom:9px">
+        <div class="ps"><div class="ps-n">STEP 01</div><div class="ps-name">Local OCR</div><div class="ps-m" style="color:var(--orange)">PaddleOCR</div><div class="ps-m">100% local</div></div>
+        <div class="ps"><div class="ps-n">STEP 02</div><div class="ps-name">PII Scrub</div><div class="ps-m" style="color:var(--blue)">scrubPII()</div><div class="ps-m">Local fn</div></div>
+        <div class="ps new-ps"><div class="ps-n">STEP 03</div><div class="ps-name">Load Checklist</div><div class="ps-m" style="color:var(--yellow)">Personalised</div><div class="ps-m">Questionnaire</div></div>
+        <div class="ps"><div class="ps-n">STEP 04</div><div class="ps-name">Gap Analysis</div><div class="ps-m" style="color:var(--purple)">Claude 4.6</div><div class="ps-m">Prompt cached</div></div>
+        <div class="ps"><div class="ps-n">STEP 05</div><div class="ps-name">Score 0–100</div><div class="ps-m" style="color:var(--purple)">Claude 4.6</div><div class="ps-m">5 components</div></div>
+        <div class="ps new-ps"><div class="ps-n">STEP 06</div><div class="ps-name">Log Events</div><div class="ps-m" style="color:var(--yellow)">application_events</div><div class="ps-m">Timeline data</div></div>
+      </div>
+      <div class="ng ng3">
+        <div class="node n-purple"><span class="ni">🔒</span><div class="nt">Local OCR (PaddleOCR)</div><div class="nd">Documents stay on your machine. Python FastAPI sidecar. Switch to Mistral via env var if needed.</div><span class="nb bp">₹0/doc · 100% Local</span></div>
+        <div class="node n-purple"><span class="ni">🧠</span><div class="nt">Claude Sonnet 4.6</div><div class="nd">Receives only PII-scrubbed summaries. Gap analysis against personalised checklist. Prompt caching saves 90%.</div><span class="nb bp">₹285/MTok output</span></div>
+        <div class="node n-yellow is-new"><span class="ni">🎯</span><div class="nt">Personalised Checklist</div><div class="nd">Claude generates checklist from 6 questionnaire answers. Self-employed → ITR. First-timer → stricter bank statements.</div><span class="nb by">Per Applicant</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L5: Output -->
+  <div class="sl" id="l5">05 — Output, Storage & Delivery</div>
+  <div class="layer">
+    <div class="lh" style="background:rgba(248,113,113,.04)"><div class="dot" style="background:var(--red)"></div>Gap Report · Score · Neon DB · Drive/OneDrive · Email · Event Log</div>
+    <div class="lb">
+      <div class="ng ng4">
+        <div class="node n-red"><span class="ni">📊</span><div class="nt">Gap Report</div><div class="nd">Personalised gap analysis with tailored recommendations. Severity-coded per item.</div><span class="nb br">PDF + Dashboard</span></div>
+        <div class="node n-red"><span class="ni">🎯</span><div class="nt">Probability Score</div><div class="nd">0–100. 5-component breakdown chart. Red/amber/green banding. Personalised verdict per applicant profile.</div><span class="nb br">Visual Score Card</span></div>
+        <div class="node n-red"><span class="ni">🗄️</span><div class="nt">Neon PostgreSQL</div><div class="nd">Metadata, OCR cache, reviews, checklist_profiles, application_events. Drive/OneDrive for raw docs.</div><span class="nb br">AES-256 at Rest</span></div>
+        <div class="node n-red"><span class="ni">📬</span><div class="nt">Email + Event Log</div><div class="nd">Resend email to agent + applicant. Every stage logged to application_events for timeline view.</div><span class="nb br">Resend + Events</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L6: Application History (NEW) -->
+  <div class="sl" id="l6">06 — Application History &amp; Timeline <span class="new-tag">★ NEW in v1.2</span></div>
+  <div class="layer new-layer">
+    <div class="lh" style="background:rgba(251,191,36,.04);border-bottom-color:rgba(251,191,36,.15)"><div class="dot" style="background:var(--yellow)"></div>Searchable History · Stage-by-Stage Timeline · Re-run Reviews</div>
+    <div class="lb">
+      <div class="new-banner">★ Every processed application is permanently stored with a full stage-by-stage event log. Agents can search all past applications, replay each processing step, compare review runs, and re-trigger AI analysis.</div>
+      <div class="ng ng3" style="margin-bottom:9px">
+        <div class="node n-yellow is-new"><span class="ni">🗂️</span><div class="nt">History Dashboard</div><div class="nd">Searchable, filterable list of all past applications. Sort by date/score/verdict. Filter by status/country/visa type. Export as CSV.</div><span class="nb by">/dashboard</span></div>
+        <div class="node n-yellow is-new"><span class="ni">⏱️</span><div class="nt">Stage Timeline</div><div class="nd">Vertical timeline per application — every stage with timestamp, duration, inputs, outputs. Expandable detail panels. Shows OCR engine, tokens, cache hits.</div><span class="nb by">/[id]/timeline</span></div>
+        <div class="node n-yellow is-new"><span class="ni">🔁</span><div class="nt">Re-run Reviews</div><div class="nd">Re-trigger AI analysis from history. Previous results preserved for comparison. OCR cache reused — only Claude re-runs. Supports review history comparison.</div><span class="nb by">Preserves history</span></div>
+      </div>
+
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">Sample stage timeline for one application</div>
+      <div class="tm">
+        <div class="ts"><div class="tn new-step">Q</div><div class="tc"><div class="tc-name">Questionnaire Completed <span style="color:var(--yellow);font-size:7px">[NEW]</span></div><div class="tc-detail">6 answers · Self-employed · First UK visit → 8 personalised docs required · 18s</div></div></div>
+        <div class="ts"><div class="tn done">✓</div><div class="tc"><div class="tc-name">3 Documents Uploaded</div><div class="tc-detail">passport.jpg · bank_statement.pdf · employment_letter.pdf · MD5 fingerprinted</div></div></div>
+        <div class="ts"><div class="tn done">✓</div><div class="tc"><div class="tc-name">Local OCR Extraction</div><div class="tc-detail">PaddleOCR · avg confidence 94% · Cache MISS · Nothing sent to internet · 8.4s</div></div></div>
+        <div class="ts"><div class="tn done">✓</div><div class="tc"><div class="tc-name">PII Scrub Complete</div><div class="tc-detail">12 PII fields removed · 9 anonymised fields retained · 0.1s</div></div></div>
+        <div class="ts"><div class="tn done">✓</div><div class="tc"><div class="tc-name">Claude Analysis</div><div class="tc-detail">claude-sonnet-4-6 · 4,180 tokens in · 847 out · Prompt cache HIT (87% saved) · Score 72/100 · 32s</div></div></div>
+        <div class="ts"><div class="tn done">✓</div><div class="tc"><div class="tc-name">Report Generated</div><div class="tc-detail">PDF created · Saved to Drive · Email sent · Total: 2m 19s</div></div></div>
+      </div>
+
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:12px 0 7px">History dashboard — sample view</div>
+      <div class="ht">
+        <div class="hth"><span>Applicant · Country</span><span>Visa Type</span><span>Score</span><span>Date</span><span>Action</span></div>
+        <div class="htr"><span>🇬🇧 Applicant A · Pakistani</span><span>UK Standard Visitor</span><span><span class="sp sp-a">72 Moderate</span></span><span style="color:var(--muted)">12 May</span><span class="ha">Timeline</span></div>
+        <div class="htr"><span>🇪🇺 Applicant B · Indian</span><span>Schengen Short Stay</span><span><span class="sp sp-g">85 Strong</span></span><span style="color:var(--muted)">10 May</span><span class="ha">Timeline</span></div>
+        <div class="htr"><span>🇺🇸 Applicant C · Bangladeshi</span><span>USA B1/B2</span><span><span class="sp sp-r">41 Weak</span></span><span style="color:var(--muted)">8 May</span><span class="ha">Re-run</span></div>
+      </div>
+
+      <div class="node n-gray" style="margin-top:9px">
+        <div class="nt" style="margin-bottom:5px">🗄️ application_events table — records every pipeline stage</div>
+        <div class="ng ng5" style="gap:6px">
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 7px;border-radius:4px">stage<br><span style="color:var(--blue)">VARCHAR(50)</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 7px;border-radius:4px">status<br><span style="color:#4ade80">completed/failed</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 7px;border-radius:4px">input_summary<br><span style="color:var(--blue)">JSONB</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 7px;border-radius:4px">output_summary<br><span style="color:var(--blue)">JSONB</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 7px;border-radius:4px">duration_ms<br><span style="color:var(--blue)">INTEGER</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- L7: Personalised Checklist (NEW) -->
+  <div class="sl" id="l7">07 — Dynamic Personalised Checklist Builder <span class="new-tag">★ NEW in v1.2</span></div>
+  <div class="layer new-layer">
+    <div class="lh" style="background:rgba(251,191,36,.04);border-bottom-color:rgba(251,191,36,.15)"><div class="dot" style="background:var(--yellow)"></div>6-Question Profile → Claude Generates Tailored Document List per Applicant</div>
+    <div class="lb">
+      <div class="new-banner">★ Instead of a fixed country template, a 6-question questionnaire builds a personalised document checklist. A self-employed first-time traveller gets completely different requirements than a salaried frequent flyer — the system knows the difference.</div>
+
+      <div class="qf">
+        <div class="qf-title">Questionnaire → Personalised Checklist Flow</div>
+        <div class="qsteps">
+          <div class="qs"><div class="qs-n">Q1</div><div class="qs-name">Employment</div><div class="qs-sub">Salaried / Self-employed / Student / Retired</div></div>
+          <div class="qs"><div class="qs-n">Q2</div><div class="qs-name">Purpose</div><div class="qs-sub">Tourism / Business / Family / Study</div></div>
+          <div class="qs"><div class="qs-n">Q3</div><div class="qs-name">Prior Travel</div><div class="qs-sub">UK/Schengen/US history + outcome</div></div>
+          <div class="qs"><div class="qs-n">Q4</div><div class="qs-name">Intl Travel</div><div class="qs-sub">Frequent / Occasional / None</div></div>
+          <div class="qs"><div class="qs-n">Q5</div><div class="qs-name">Property</div><div class="qs-sub">Owns property in home country?</div></div>
+          <div class="qs"><div class="qs-n">Q6</div><div class="qs-name">Balance Range</div><div class="qs-sub">₹50k / ₹50k–2L / ₹2L–10L / ₹10L+</div></div>
+        </div>
+        <div style="font-size:8px;color:var(--yellow);margin-top:8px;text-align:center;letter-spacing:.06em">→ Answers sent to Claude → Personalised checklist returned with score impact per document</div>
+      </div>
+
+      <div class="ng ng3" style="margin-top:9px">
+        <div class="node n-yellow is-new"><span class="ni">🎯</span><div class="nt">Profile-Aware</div><div class="nd">Self-employed → ITR required. First-timer → 6 months bank (not 3). Student → sponsorship letter. Each case different.</div><span class="nb by">Not one-size-fits-all</span></div>
+        <div class="node n-yellow is-new"><span class="ni">📊</span><div class="nt">Score Impact Upfront</div><div class="nd">Each checklist item shows estimated score contribution (+5 to +18 pts). Applicants know which documents matter most before uploading.</div><span class="nb by">Transparent</span></div>
+        <div class="node n-yellow is-new"><span class="ni">✏️</span><div class="nt">Agent Override</div><div class="nd">Agents can add, remove, or override any checklist item. AI is the starting point — agent has final word. All overrides tracked in agent_overrides JSONB.</div><span class="nb by">Human-in-the-loop</span></div>
+      </div>
+
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:11px 0 7px">Sample personalised checklist — self-employed first-time UK visitor</div>
+      <div class="cl-sample">
+        <div class="cl-title">Generated Checklist · UK Standard Visitor · Self-employed · First Visit</div>
+        <div class="cl-item"><div class="cl-dot cl-req"></div><div class="cl-body"><div class="cl-name">Passport (valid 6+ months)</div><div class="cl-reason">Required for all applicants</div></div><div class="cl-pts">+15 pts</div></div>
+        <div class="cl-item"><div class="cl-dot cl-req"></div><div class="cl-body"><div class="cl-name">Business registration + 3-year ITR</div><div class="cl-reason">⭐ Personalised: As self-employed, tax returns carry more weight than an employment letter</div></div><div class="cl-pts">+18 pts</div></div>
+        <div class="cl-item"><div class="cl-dot cl-req"></div><div class="cl-body"><div class="cl-name">Bank statements — 6 months (not 3)</div><div class="cl-reason">⭐ Personalised: First-time UK visitors face higher scrutiny — 6 months required</div></div><div class="cl-pts">+15 pts</div></div>
+        <div class="cl-item"><div class="cl-dot cl-rec"></div><div class="cl-body"><div class="cl-name">Property ownership documents</div><div class="cl-reason">⭐ Personalised: Strong tie to home country — critical for first-time visitors</div></div><div class="cl-pts">+12 pts</div></div>
+        <div class="cl-item"><div class="cl-dot cl-opt"></div><div class="cl-body"><div class="cl-name">Hotel booking + return flight</div><div class="cl-reason">Optional but strengthens tourism purpose</div></div><div class="cl-pts">+5 pts</div></div>
+      </div>
+
+      <div class="node n-gray" style="margin-top:9px">
+        <div class="nt" style="margin-bottom:5px">🗄️ checklist_profiles table — questionnaire answers + generated checklist</div>
+        <div class="ng" style="grid-template-columns:repeat(2,1fr);gap:6px">
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 8px;border-radius:4px">questionnaire_answers<br><span style="color:var(--yellow)">JSONB — 6 answers stored</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 8px;border-radius:4px">generated_checklist<br><span style="color:var(--yellow)">JSONB — full Claude output</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 8px;border-radius:4px">profile_flags<br><span style="color:var(--yellow)">TEXT[] — ['self_employed','first_uk_visit']</span></div>
+          <div style="font-size:8px;color:var(--muted);background:var(--surface2);padding:6px 8px;border-radius:4px">agent_overrides<br><span style="color:var(--yellow)">JSONB — manual agent edits</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fa">↓</div>
+
+  <!-- COSTS -->
+  <div class="sl" id="costs">08 — Monthly Cost Estimate (100 Applications · ₹95/USD · 20–25% buffer)</div>
+  <div class="cs">
+    <div class="cc">
+      <div class="cc-l">OCR Cost (Local PaddleOCR)</div>
+      <div class="cc-v cc-save">₹0</div>
+      <div class="cc-s">Fully local — zero API cost. Saves ₹65–80/month vs cloud OCR.</div>
+    </div>
+    <div class="cc">
+      <div class="cc-l">AI Analysis + Checklist Gen (Claude)</div>
+      <div class="cc-v">~₹510</div>
+      <div class="cc-s">Gap analysis + personalised checklist generation. Prompt cached.</div>
+    </div>
+    <div class="cc">
+      <div class="cc-l">Total AI + Infrastructure</div>
+      <div class="cc-v" style="color:var(--blue)">~₹3,600</div>
+      <div class="cc-s">With 20% buffer. Vercel Pro + Neon ~₹3,100/mo.</div>
+    </div>
+  </div>
+
+  <div class="pf">
+    DATA RESIDENCY: Local OCR (your server) · Anthropic API with DPA (Analysis) · Google Drive / OneDrive (Documents)<br>
+    COMPLIANCE: GDPR · AES-256 · Zero Data Retention on LLM APIs · Immutable Audit Trail<br>
+    NEW IN v1.2: Application History &amp; Timeline · Stage-by-Stage Audit · Personalised Checklist Builder · Re-run Reviews
+  </div>
+
+</div>
+
+<script>
+const btn = document.getElementById('hamburger');
+const drawer = document.getElementById('mobileDrawer');
+let open = false;
+
+function openD(){ open=true; btn.classList.add('open'); drawer.classList.add('open'); btn.setAttribute('aria-expanded','true'); document.body.style.overflow='hidden'; }
+function closeD(){ open=false; btn.classList.remove('open'); drawer.classList.remove('open'); btn.setAttribute('aria-expanded','false'); document.body.style.overflow=''; }
+
+btn.addEventListener('click', ()=> open ? closeD() : openD());
+document.querySelectorAll('.dl').forEach(l => l.addEventListener('click', closeD));
+document.addEventListener('keydown', e => { if(e.key==='Escape' && open) closeD(); });
+window.addEventListener('resize', ()=>{ if(window.innerWidth>900 && open) closeD(); });
+
+// Active nav
+const secs = document.querySelectorAll('[id]');
+const navAs = document.querySelectorAll('.nav-links a');
+const o = new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(e.isIntersecting){
+      navAs.forEach(a=>{ a.style.color=''; if(a.getAttribute('href')==='#'+e.target.id) a.style.color='var(--green)'; });
+    }
+  });
+},{threshold:0.4});
+secs.forEach(s=>o.observe(s));
+</script>
+</body>
+</html>

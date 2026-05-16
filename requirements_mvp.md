@@ -1,11 +1,21 @@
 # Visa AI Review System — MVP Requirements
-**Version:** 1.1 | **Date:** May 2026 | **Purpose:** POC / Customer Demo
+**Version:** 1.2 | **Date:** May 2026 | **Purpose:** POC / Customer Demo
 **Build Time:** 1 week | **Deploy:** Vercel (free/hobby tier)
 
 > **Claude Code Instruction:** This is a lean MVP to demonstrate the concept to a customer.
 > Speed of delivery matters more than production hardening. Build what is listed here —
 > nothing more. Every item marked ❌ DEFERRED is intentionally excluded from this build.
 > The goal is a working demo that can be shown live in a browser within 7 days.
+
+**v1.2 Changes from v1.1:**
+- **NEW:** Application History page — view all past processed applications with status, score, and outputs
+- **NEW:** Stage-by-stage timeline — every processing step logged with inputs/outputs (simplified for MVP)
+- **NEW:** Dynamic Questionnaire — 6-question profile builder that generates a personalised document checklist
+- Questionnaire routes to document upload with personalised checklist shown (not fixed template)
+- `application_events` table added (lightweight version for MVP)
+- `checklist_profiles` table added for questionnaire answers + generated checklist
+- New pages: `/history`, `/questionnaire/[id]`, `/applications/[id]/timeline`
+- Re-run review button added to history view
 
 **v1.1 Changes from v1.0:**
 - OCR is now **local-first by default** using a Python FastAPI service (PaddleOCR or Ollama)
@@ -45,7 +55,11 @@ If the demo answers all five, the customer signs off. Everything else is post-MV
 | PII scrubbing | ✅ Full scrubPII() implementation | Same |
 | Gap analysis | ✅ Claude Sonnet 4.6 | Same |
 | Probability score | ✅ Full 0–100 with breakdown | Same |
-| Visa checklists | ✅ UK + Schengen only (2 countries) | 6 countries |
+| **Questionnaire** | ✅ **6-question profile builder + Claude checklist generation** | Full conditional multi-step |
+| **Personalised checklist** | ✅ **Claude-generated per applicant** | Agent override, score impact |
+| **Application history** | ✅ **Simple list of past applications with scores** | Full search/filter/export |
+| **Stage timeline** | ✅ **Simplified 5-stage timeline per application** | Full 10-stage with detail panels |
+| Visa checklists | ✅ UK + Schengen base templates (used by questionnaire) | 6 countries |
 | Auth | ✅ Single hardcoded demo login | Full NextAuth + OAuth |
 | Roles | ✅ One role (agent/admin combined) | 4 roles |
 | PDF report | ✅ Simple downloadable PDF | Full branded PDF |
@@ -94,44 +108,68 @@ If the demo answers all five, the customer signs off. Everything else is post-MV
 ## Pages — MVP (5 Pages Only)
 
 ```
-/                  → Landing / Demo intro page
-/demo              → Single demo flow (no login required for demo mode)
-/upload            → Document upload + review trigger
-/results/[id]      → Gap analysis report + score
-/pii-explainer     → Visual PII scrubbing explainer (wow factor for demo)
+/                       → Landing / Demo intro page
+/demo                   → Step 1: Select visa type + nationality
+/questionnaire/[id]     → NEW: 6-question profile builder → personalised checklist
+/upload/[id]            → Step 3: Upload docs (against personalised checklist)
+/processing/[id]        → Step 4: Live stage-by-stage progress
+/results/[id]           → Step 5: Gap analysis report + score
+/history                → NEW: All past applications list with scores
+/applications/[id]/timeline → NEW: Stage timeline for any application
+/pii-explainer/[id]     → Visual PII scrubbing explainer (wow factor for demo)
 ```
 
-> **No login page, no dashboard, no admin panel** — the demo starts at `/demo` and
-> flows linearly to `/results`. The customer sees the product, not the login screen.
+> **No login page, no admin panel** — the demo starts at `/demo` and flows linearly.
+> The history page lets the customer browse past demo runs, showing the system
+> remembers and tracks everything. The questionnaire is a key wow moment.
 
 ---
 
 ## 1. Demo Flow — End to End
 
-The entire demo runs as a linear wizard with 4 steps:
+The entire demo runs as a linear wizard with **6 steps**:
 
 ```
-STEP 1          STEP 2            STEP 3              STEP 4
-Select Visa  →  Upload Docs   →   Processing...   →   Results
-Country/Type    (drag & drop)     (live progress)     (score + gaps)
+STEP 1        STEP 2           STEP 3        STEP 4          STEP 5        STEP 6
+Select   →  Questionnaire  →  Personalised  →  Upload    →  Processing  →  Results
+Visa         (6 questions)     Checklist        Docs          (live)        (score)
 ```
 
 ### Step 1 — Select Visa Type
 - Dropdown: United Kingdom — Standard Visitor OR Schengen — Short Stay
 - Dropdown: Nationality (free text or simple list)
-- "Start Review" button → goes to Step 2
+- "Build My Checklist" button → goes to Step 2 (questionnaire)
 
-### Step 2 — Upload Documents
+### Step 2 — Questionnaire (NEW)
+Present 6 questions to build applicant profile:
+- Employment status (Salaried / Self-employed / Student / Retired / Other)
+- Purpose of visit (Tourism / Business / Family / Medical / Study)
+- Prior travel to destination country (Yes approved / Yes refused / Never)
+- Prior international travel (Frequent / Occasional / None)
+- Property ownership in home country (Yes / No)
+- Monthly bank balance range (Below ₹50k / ₹50k–2L / ₹2L–10L / Above ₹10L)
+
+"Generate My Checklist" button → Claude generates personalised checklist → Step 3
+
+### Step 3 — Personalised Checklist (NEW)
+Show generated checklist with:
+- Each document listed with priority (Required / Recommended / Optional)
+- A one-line personalised reason: *"As a self-employed applicant, your 3-year bank statements carry more weight than for salaried applicants"*
+- Score impact badge next to each item: *"+8 pts"*
+- "Proceed to Upload" button → Step 4
+
+### Step 4 — Upload Documents
 - Drag-and-drop upload area
 - Accepts: PDF, JPG, PNG (max 10MB each)
 - Show document type labels: Passport, Bank Statement, Employment Letter, Photo, Supporting Docs
 - Each uploaded file shows: filename, size, type badge, green tick on upload
 - "Run AI Review" button activates once at least 1 document uploaded
 
-### Step 3 — Processing (The Demo Magic Moment)
+### Step 5 — Processing (The Demo Magic Moment)
 Live animated progress showing exactly what is happening:
 
 ```
+✅ Personalised checklist applied (6 documents required for your profile)
 ✅ Documents received and fingerprinted
 ⏳ Checking OCR cache...
 ✅ Cache miss — running local OCR (document stays on this machine)
@@ -140,18 +178,16 @@ Live animated progress showing exactly what is happening:
 ⏳ Scrubbing personal data before AI analysis...
 ✅ PII scrubbed — passport numbers and financial figures removed
 ⏳ Sending anonymised summary to Claude for gap analysis...
-✅ Analysis complete
+✅ Analysis complete against your personalised checklist
 ⏳ Generating report...
 ✅ Done — full review in under 3 minutes
 ```
 
-> This step is the most powerful moment in the demo. The customer sees:
-> (a) OCR runs locally — no document leaves the machine
-> (b) PII is scrubbed before anything goes to the internet
-> (c) Claude only receives anonymised summaries
+> This step now shows **personalised checklist applied** as the first event —
+> demonstrating that the analysis is specific to this applicant's profile.
 > Build genuine live status updates — not fake animations.
 
-### Step 4 — Results Page
+### Step 6 — Results Page
 Full gap analysis report (see Section 4).
 
 ---
@@ -1003,8 +1039,38 @@ CREATE TABLE review_results (
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_doc_hash_mvp ON document_extractions(document_hash);
-CREATE INDEX idx_review_docs  ON documents(review_id);
+-- NEW: Questionnaire answers + personalised checklist per application
+CREATE TABLE checklist_profiles (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  review_id             UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+  base_checklist_id     VARCHAR(50) NOT NULL,
+  questionnaire_answers JSONB NOT NULL,
+  generated_checklist   JSONB NOT NULL,   -- from Claude
+  profile_flags         TEXT[],
+  high_risk_factors     TEXT[],
+  strengths             TEXT[],
+  special_instructions  TEXT,
+  generated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- NEW: Stage-by-stage event log (simplified — 5 key stages for MVP)
+CREATE TABLE application_events (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  review_id       UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+  stage           VARCHAR(50) NOT NULL,
+  -- MVP stages: QUESTIONNAIRE_COMPLETE | OCR_CACHE_CHECK | OCR_EXTRACTION |
+  --             PII_SCRUB | CLAUDE_ANALYSIS | REPORT_GENERATED
+  status          VARCHAR(20) NOT NULL DEFAULT 'completed',
+  output_summary  JSONB,
+  metadata        JSONB,   -- tokens, cache_hit, duration_ms, engine etc.
+  duration_ms     INTEGER,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_doc_hash_mvp    ON document_extractions(document_hash);
+CREATE INDEX idx_review_docs     ON documents(review_id);
+CREATE INDEX idx_events_review   ON application_events(review_id, created_at);
+CREATE INDEX idx_checklist_review ON checklist_profiles(review_id);
 ```
 
 ---
@@ -1218,26 +1284,32 @@ Day 1 AM:  Python OCR service setup (ocr-service/main.py)
            Verify http://localhost:8000/health returns ok
 
 Day 1 PM:  Next.js project + Neon DB + Drizzle schema
+           (includes checklist_profiles + application_events tables)
            lib/ai/ocr.ts (mode-aware wrapper)
            lib/ai/ocrCache.ts (MD5 + Neon cache)
 
-Day 2:     scrubPII() + Claude gap analysis + prompt caching
-           End-to-end pipeline test: upload → local OCR → scrub → Claude → result
+Day 2 AM:  lib/ai/checklistBuilder.ts — questionnaire → Claude → personalised checklist
+           Test: 6 answers in → personalised JSON checklist out
+           
+Day 2 PM:  scrubPII() + Claude gap analysis (updated to use personalised checklist)
+           application_events logging inside processReviewInBackground()
 
-Day 3:     4-step demo wizard UI (all 4 pages)
-           ProcessingSteps.tsx with live polling
+Day 3:     Questionnaire page (/questionnaire/[id]) — 6 questions, conditional logic
+           Personalised checklist preview page with score impact badges
 
-Day 4:     Results page (ScoreGauge + GapAnalysisTable + ProbabilityBreakdown)
+Day 4:     Upload page (shows personalised checklist progress)
+           6-step processing wizard with live polling + event logging
 
-Day 5:     PII explainer page (PIIComparison.tsx with real scrubbed data)
-           PDF download (@react-pdf/renderer)
+Day 5:     Results page (ScoreGauge + GapAnalysisTable + ProbabilityBreakdown)
+           Stage Timeline page (/applications/[id]/timeline)
+           Application History page (/history)
 
-Day 6:     Polish, error handling, demo script rehearsal
-           Test with all 3 demo documents at least 5 times
+Day 6:     PII explainer page + PDF download
+           Polish, error handling, demo script rehearsal
 
-Day 7:     Deploy Next.js to Vercel
-           Prepare local machine for in-person demo
-           Run full demo script 3 times — ensure OCR cache kicks in on repeat runs
+Day 7:     Deploy to Vercel
+           Pre-run demo once to warm cache and populate history
+           Run full new demo script 3 times end to end
 ```
 
 ### 11.3 MVP Non-Negotiable Rules
@@ -1247,9 +1319,12 @@ Day 7:     Deploy Next.js to Vercel
 3. **PII scrubbing is real** — `scrubPII()` runs before every Claude call. Store scrubbed output for PII demo page.
 4. **OCR cache is real** — Check Neon DB cache before calling Python service. Check SQLite cache inside Python before running OCR. Show "cache hit" vs "cache miss" in processing steps.
 5. **Prompt caching enabled** — `cache_control: { type: 'ephemeral' }` on Claude system prompt.
-6. **Processing steps show OCR location** — Display "Extracting locally — document stays on this machine" not just "Extracting...".
-7. **Score must look impressive** — Animated, colour-coded, prominent. This is what the customer photographs.
-8. **No broken states** — If Python service is down, show clear error: "Local OCR service not running. Start with: python ocr-service/main.py". Never show a stack trace.
+6. **Questionnaire is real** — Claude must generate the personalised checklist from actual questionnaire answers. Never hardcode a checklist. The personalised reasons and score impact numbers must come from Claude.
+7. **History is real** — `/history` page must show actual past reviews stored in Neon DB. If this is the first run, show an empty state with helpful text. Never mock data.
+8. **Timeline is real** — Every background processing step must write an `application_events` record. The timeline page reads from these real records.
+9. **Processing steps show OCR location** — Display "Extracting locally — document stays on this machine" not just "Extracting...".
+10. **Score must look impressive** — Animated, colour-coded, prominent. This is what the customer photographs.
+11. **No broken states** — If Python service is down, show clear error: "Local OCR service not running. Start with: python ocr-service/main.py". Never show a stack trace.
 
 ### 11.4 Demo Script (For the Sales Meeting)
 
@@ -1257,23 +1332,36 @@ Day 7:     Deploy Next.js to Vercel
 BEFORE the meeting:
   - Start Python service: python ocr-service/main.py
   - Start Next.js: npm run dev
-  - Run the full demo once so OCR cache is warm
+  - Run the full demo once so OCR cache is warm and history has 1 entry
 
 IN the meeting:
-  1. Open http://localhost:3000 (or Vercel URL)
-  2. Click "Try Demo"
-  3. Select "UK Standard Visitor Visa" + nationality "Pakistani"
-  4. Upload 3 pre-prepared test files (see Section 11.5)
-  5. Click "Run AI Review"
-  6. Point out: "OCR is running on this machine — nothing leaves the room"
-  7. Watch processing steps tick off live
-  8. Show results: score ~65–70, bank statement flagged as weak
-  9. Click "How is your data protected?" → PII explainer
-  10. Show "what local OCR extracted" vs "what Claude received"
-  11. Download PDF report
-  12. Run again with same files — OCR cache kicks in, result is instant
-  13. Say: "Second time is instant because we've already read these documents"
-  14. Say: "This is what every applicant gets in under 3 minutes —
+  PART A — Show History First (builds credibility)
+  1. Open http://localhost:3000
+  2. Go to /history — show the previous demo run already in the list
+  3. Click on it — show the stage timeline with all steps completed
+  4. Say: "Every application is tracked end to end — full audit trail"
+  5. Say: "You can see the score, the gaps, the PDF — all from one place"
+
+  PART B — Run a new application (the main demo)
+  6. Click "New Application"
+  7. Select "UK Standard Visitor Visa" + nationality "Pakistani"
+  8. Click "Build My Checklist"
+  9. Answer the 6 questions: Self-employed, Tourism, Never been to UK,
+     Occasional traveller, Owns property, ₹2L–10L balance
+  10. Show generated personalised checklist — point out:
+      "Notice it says ITR filing is required because they are self-employed"
+      "It added property documents because they own property — strengthens ties"
+  11. Click "Proceed to Upload"
+  12. Upload 3 pre-prepared test files
+  13. Click "Run AI Review"
+  14. Point out: "OCR is running on this machine — nothing leaves the room"
+  15. Watch 6 processing steps tick off live — including "Personalised checklist applied"
+  16. Show results: score ~65–70, bank statement flagged as weak
+  17. Click "How is your data protected?" → PII explainer
+  18. Run again with same files — OCR cache kicks in, result is instant
+  19. Go back to /history — show both applications now listed
+  20. Say: "This is what every applicant gets in under 3 minutes —
+            completely personalised to their situation,
             and their documents never leave your server"
 ```
 
